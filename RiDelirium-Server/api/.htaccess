@@ -1,0 +1,10 @@
+# Send everything under /v1/ to index.php. For nginx: try_files $uri /api/index.php$is_args$args;
+RewriteEngine On
+# Apache (CGI/FastCGI) drops the Authorization header unless it is passed on explicitly.
+RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+SetEnvIfNoCase ^Authorization$ "(.+)" HTTP_AUTHORIZATION=$1
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteRule ^ index.php [L]
+<FilesMatch "\.(sql|md)$">
+    Require all denied
+</FilesMatch>

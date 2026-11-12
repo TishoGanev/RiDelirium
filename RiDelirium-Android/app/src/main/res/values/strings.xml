@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">RiDelirium</string>
+    <string name="tracking_channel">Ride tracking</string>
+    <string name="tracking_notification">Recording your ride</string>
+</resources>

@@ -1,0 +1,30 @@
+services:
+  ridersapi:
+    build: .
+    container_name: ridersapi
+    restart: unless-stopped
+    environment:
+      DB_DSN: ${DB_DSN}
+      DB_USER: ${DB_USER}
+      DB_PASS: ${DB_PASS}
+      RATE_SALT: ${RATE_SALT}
+      APNS_KEY_FILE: /run/secrets/apns.p8
+      APNS_KEY_ID: ${APNS_KEY_ID:-}
+      APNS_TEAM_ID: ${APNS_TEAM_ID:-}
+      APNS_TOPIC: ${APNS_TOPIC:-com.bgdeveloper.thesnowboarder}
+      FCM_KEY_FILE: /run/secrets/fcm.json
+      FCM_PROJECT_ID: ${FCM_PROJECT_ID:-}
+      ANDROID_CERT_SHA256: ${ANDROID_CERT_SHA256:-}
+      ANDROID_PACKAGE: ${ANDROID_PACKAGE:-com.bgdeveloper.ridelirium}
+      APP_STORE_URL: ${APP_STORE_URL:-}
+      PLAY_STORE_URL: ${PLAY_STORE_URL:-}
+    volumes:
+      - ./apns.p8:/run/secrets/apns.p8:ro
+      - ./fcm.json:/run/secrets/fcm.json:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks: [proxy]
+
+networks:
+  proxy:
+    external: true

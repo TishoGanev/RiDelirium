@@ -1,0 +1,8 @@
+.DS_Store
+.env
+config.php
+*.md
+api/*.sql
+apns.p8
+*.p8
+fcm.json

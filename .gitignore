@@ -15,3 +15,31 @@ Pods/
 
 # Release output
 build/
+
+# Sensitive data
+.env
+.env.*
+!.env.example
+*.p8
+*.p12
+*.pem
+*.key
+*.jks
+*.keystore
+*.mobileprovision
+fcm.json
+**/fcm.json
+google-services.json
+GoogleService-Info.plist
+serviceAccount*.json
+local.properties
+Secrets.xcconfig
+
+# IDE / build
+.idea/
+.gradle/
+.kotlin/
+.claude/
+
+# Nested repo (own git history)
+RiDelirium-iOS/
