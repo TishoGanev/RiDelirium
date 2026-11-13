@@ -3,6 +3,11 @@ package com.bgdeveloper.ridelirium.ui.track
 import android.Manifest
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -261,23 +266,33 @@ fun TrackScreen(viewModel: TrackViewModel = hiltViewModel(), friendsViewModel: F
                     if (friendsUi.onMap.isNotEmpty()) ShowEveryoneButton(showEveryone)
                     MapButton(ui, onRecenter = recenter, onFollow = viewModel::startFollowing, onUnfollow = viewModel::stopFollowing)
                 }
-                if (selected != null) {
-                    val meters = if (here != null && selected.hasPosition) {
-                        val out = FloatArray(1)
-                        android.location.Location.distanceBetween(here.latitude, here.longitude, selected.latitude!!, selected.longitude!!, out)
-                        out[0].toInt()
-                    } else null
-                    val sent = now - (waitSent[selected.id] ?: 0L) < 30_000
-                    Box(Modifier.padding(top = 12.dp)) {
-                        SelectedFriendCard(
-                            selected, meters?.let { shortDistance(ui.units, it) }, sent,
-                            onWait = {
-                                waitSent[selected.id] = System.currentTimeMillis()
-                                now = System.currentTimeMillis()
-                                friendsViewModel.askToWait(selected.id) { ok -> if (!ok) waitSent.remove(selected.id) }
-                            },
-                            onClose = { selectedId = null },
-                        )
+                // Keeps the last rider while the card slides out, like iOS (move from the bottom, fade).
+                var lastSelected by remember { mutableStateOf<Friend?>(null) }
+                if (selected != null) lastSelected = selected
+                AnimatedVisibility(
+                    visible = selected != null,
+                    enter = slideInVertically(tween(250)) { it / 2 } + fadeIn(tween(250)),
+                    exit = slideOutVertically(tween(200)) { it / 2 } + fadeOut(tween(200)),
+                ) {
+                    val shown = selected ?: lastSelected
+                    if (shown != null) {
+                        val meters = if (here != null && shown.hasPosition) {
+                            val out = FloatArray(1)
+                            android.location.Location.distanceBetween(here.latitude, here.longitude, shown.latitude!!, shown.longitude!!, out)
+                            out[0].toInt()
+                        } else null
+                        val sent = now - (waitSent[shown.id] ?: 0L) < 30_000
+                        Box(Modifier.padding(top = 12.dp)) {
+                            SelectedFriendCard(
+                                shown, meters?.let { shortDistance(ui.units, it) }, sent,
+                                onWait = {
+                                    waitSent[shown.id] = System.currentTimeMillis()
+                                    now = System.currentTimeMillis()
+                                    friendsViewModel.askToWait(shown.id) { ok -> if (!ok) waitSent.remove(shown.id) }
+                                },
+                                onClose = { selectedId = null },
+                            )
+                        }
                     }
                 }
                 Box(Modifier.padding(top = 12.dp).onGloballyPositioned { cardTopPx = it.positionInRoot().y }) {

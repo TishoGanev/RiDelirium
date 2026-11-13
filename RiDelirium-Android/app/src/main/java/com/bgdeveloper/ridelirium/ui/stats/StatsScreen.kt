@@ -101,7 +101,7 @@ private fun Header(ui: StatsUiState) {
             style = sb(18, tracking = 0.04f), color = Color.White,
         )
         HeroNumber(
-            value = "%.0f".format(ui.units.distanceValue(header.distanceMeters)),
+            value = "%.1f".format(java.util.Locale.US, ui.units.distanceValue(header.distanceMeters)),
             captionLines = listOf("${ui.units.distanceUnit.uppercase()} RIDDEN", "${ui.units.speed(header.topSpeed)} TOP SPEED"),
             modifier = Modifier.padding(top = 8.dp),
         )
@@ -111,7 +111,6 @@ private fun Header(ui: StatsUiState) {
 /** Time filter chips, and the progress summary for the rides they leave in view. */
 @Composable
 private fun RangeBar(ui: StatsUiState, onRange: (StatsRange) -> Unit, onProgress: () -> Unit) {
-    val enabled = ui.sessions.isNotEmpty()
     Column(Modifier.fillMaxWidth().background(Color.White).padding(vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(
             Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp),
@@ -130,18 +129,20 @@ private fun RangeBar(ui: StatsUiState, onRange: (StatsRange) -> Unit, onProgress
                 }
             }
         }
-        Row(
-            Modifier.padding(horizontal = 16.dp).fillMaxWidth().height(48.dp)
-                .clip(RoundedCornerShape(16.dp)).background(Sb.LightGrey)
-                .clickable(enabled = enabled, onClick = onProgress)
-                .alpha(if (enabled) 1f else 0.4f)
-                .padding(horizontal = 16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            Text("PROGRESS INSIGHTS", style = sb(16, tracking = 0.04f), color = Sb.Red, modifier = Modifier.weight(1f))
-            Text("${ui.sessions.size} ${if (ui.sessions.size == 1) "RIDE" else "RIDES"}", style = sb(13), color = Sb.Red.copy(alpha = 0.7f))
-            Chevron(color = Sb.Red, size = 10.dp)
+        // One ride has nothing to compare against.
+        if (ui.sessions.size >= 2) {
+            Row(
+                Modifier.padding(horizontal = 16.dp).fillMaxWidth().height(48.dp)
+                    .clip(RoundedCornerShape(16.dp)).background(Sb.LightGrey)
+                    .clickable(onClick = onProgress)
+                    .padding(horizontal = 16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Text("PROGRESS INSIGHTS", style = sb(16, tracking = 0.04f), color = Sb.Red, modifier = Modifier.weight(1f))
+                Text("${ui.sessions.size} RIDES", style = sb(13), color = Sb.Red.copy(alpha = 0.7f))
+                Chevron(color = Sb.Red, size = 10.dp)
+            }
         }
     }
 }
