@@ -1,5 +1,10 @@
 package com.bgdeveloper.ridelirium.ui.stats
 
+import androidx.compose.foundation.border
+import androidx.compose.material3.Icon
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import android.graphics.Bitmap
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -106,14 +111,14 @@ fun DailyStatsScreen(onBack: () -> Unit, viewModel: DailyStatsViewModel = hiltVi
                 Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 106.dp),
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                ActionButton("REPLAY", Sb.LightGrey, Sb.GreyButtonText, Modifier.weight(1f), onClick = viewModel::startReplay)
-                ActionButton("SHARE", Sb.LightGrey, Sb.GreyButtonText, Modifier.weight(1f), loading = ui.isPreparingShare) {
+                ActionButton("REPLAY", Color.White, Sb.GreyButtonText, Modifier.weight(1f), onClick = viewModel::startReplay)
+                ActionButton("SHARE", Color.White, Sb.GreyButtonText, Modifier.weight(1f), loading = ui.isPreparingShare) {
                     scope.launch {
                         val snapshots = map?.let { shareSnapshots(it, ui.session?.coordinates.orEmpty(), padding) }.orEmpty()
                         viewModel.prepareShare(snapshots)
                     }
                 }
-                ActionButton("EXPORT", Sb.LightGrey, Sb.GreyButtonText, Modifier.weight(1f), onClick = viewModel::export)
+                ActionButton("EXPORT", Color.White, Sb.GreyButtonText, Modifier.weight(1f), onClick = viewModel::export)
             }
         }
     }
@@ -220,16 +225,16 @@ private fun Header(ui: DailyUiState, onBack: () -> Unit, onShowSegments: () -> U
                 Chevron(color = Color.White, size = 9.dp)
             }
         }
-        InsightsButton(onShowInsights)
         if (ui.analysis.runs.isNotEmpty()) {
             val runs = ui.analysis.runs.size
             Text(
                 "$runs ${if (runs == 1) "RUN" else "RUNS"} · ${ui.units.distance(ui.analysis.downhillDistance)} DOWNHILL · " +
                     "${ui.units.altitude(ui.analysis.totalVertical)} DESCENT",
                 style = sb(14, tracking = 0.04f), color = Color.White.copy(alpha = 0.88f),
-                maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 10.dp),
+                maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp),
             )
         }
+        InsightsButton(onShowInsights)
     }
 }
 
@@ -237,13 +242,16 @@ private fun Header(ui: DailyUiState, onBack: () -> Unit, onShowSegments: () -> U
 private fun InsightsButton(onClick: () -> Unit) {
     val shape = RoundedCornerShape(20.dp)
     Row(
-        Modifier.padding(top = 16.dp).fillMaxWidth().height(64.dp)
+        Modifier.padding(top = 14.dp).fillMaxWidth().height(64.dp)
             .shadow(8.dp, shape, ambientColor = Color.Black.copy(0.3f), spotColor = Color.Black.copy(0.3f))
-            .clip(shape).background(Color.White).clickable(onClick = onClick).padding(horizontal = 18.dp),
+            .clip(shape).background(Color.White).clickable(onClick = onClick).padding(horizontal = 18.dp)
+            .semantics { contentDescription = "Ride insights" },
         verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
+        Icon(painterResource(R.drawable.ic_sparkles), contentDescription = null, tint = Color.Unspecified, modifier = Modifier.size(24.dp))
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text("INSIGHTS", style = sb(22, tracking = 0.04f, lineHeight = 1f), color = Sb.Red)
+            Text("AI INSIGHTS", style = sb(22, tracking = 0.04f, lineHeight = 1f), color = Sb.Red)
             Text("A SUMMARY OF THIS RIDE", style = sb(13, tracking = 0.06f, lineHeight = 1f), color = Sb.Red.copy(alpha = 0.7f))
         }
         Chevron(color = Sb.Red, size = 12.dp)
@@ -320,7 +328,7 @@ private fun RouteMap(ui: DailyUiState, onMap: (GmsMap) -> Unit, modifier: Modifi
         }
         if (parts.isNotEmpty()) {
             Row(
-                Modifier.align(Alignment.BottomStart).padding(12.dp).clip(RoundedCornerShape(50))
+                Modifier.align(Alignment.TopEnd).padding(12.dp).clip(RoundedCornerShape(50))
                     .background(Color.Black.copy(alpha = 0.55f)).padding(horizontal = 12.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
@@ -383,6 +391,7 @@ private fun ActionButton(
 ) {
     Box(
         modifier.height(64.dp).clip(RoundedCornerShape(18.dp)).background(background)
+            .border(1.5.dp, Color(0xFFE4E4E4), RoundedCornerShape(18.dp))
             .clickable(enabled = !loading, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
