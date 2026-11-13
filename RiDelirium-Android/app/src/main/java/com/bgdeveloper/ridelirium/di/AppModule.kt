@@ -17,7 +17,7 @@ object AppModule {
     @Provides
     @Singleton
     fun database(@ApplicationContext context: Context): AppDatabase =
-        Room.databaseBuilder(context, AppDatabase::class.java, "snowman.db")
+        Room.databaseBuilder(context, AppDatabase::class.java, "ridelirium.db")
             .addMigrations(AppDatabase.MIGRATION_1_2, AppDatabase.MIGRATION_2_3)
             .build()
 

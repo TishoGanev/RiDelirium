@@ -1,5 +1,5 @@
 <?php
-// Ride Together API: accountless friends list for the Snowboarder app.
+// Ride Together API: accountless friends list for the RiDelirium app.
 //
 //   POST   /v1/riders                {"id","name"}        -> 201 {"token"}      register this install
 //   PUT    /v1/riders/me             {"name"}             -> 200 friend         change display name
@@ -223,7 +223,7 @@ function invitePage(string $code): never {
     $owner = q('SELECT r.name FROM invites i JOIN riders r ON r.id = i.rider_id WHERE i.code = ?', [strtoupper($code)])->fetchColumn();
     $e = fn (string $text): string => htmlspecialchars($text, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
     $code = strtoupper($code);
-    $title = $owner ? $owner . ' invited you to ride on SnowMan' : 'Ride together on SnowMan';
+    $title = $owner ? $owner . ' invited you to ride on RiDelirium' : 'Ride together on RiDelirium';
     $text = $owner ? 'Join their crew to see each other on the map while you ride.' : 'This invite link is no longer valid. Ask for a new one.';
     $stores = '';
     foreach (['APP_STORE_URL' => 'Download for iPhone', 'PLAY_STORE_URL' => 'Download for Android'] as $key => $label) {
@@ -245,8 +245,8 @@ function invitePage(string $code): never {
         . '.code{font:600 28px ui-monospace,monospace;letter-spacing:4px;margin:8px 0 4px}</style></head><body>'
         . '<h1>' . $e($title) . '</h1><p>' . $e($text) . '</p>';
     if ($owner) {
-        echo '<a class="btn" href="snowboarder://join/' . $e($code) . '">Open in SnowMan</a>' . $stores
-            . '<p style="margin-top:32px">No link button? In SnowMan open Ride Together, tap Scan, then Type a code:</p>'
+        echo '<a class="btn" href="ridelirium://join/' . $e($code) . '">Open in RiDelirium</a>' . $stores
+            . '<p style="margin-top:32px">No link button? In RiDelirium open Ride Together, tap Scan, then Type a code:</p>'
             . '<div class="code">' . $e(substr($code, 0, 4) . '-' . substr($code, 4)) . '</div>';
     }
     echo '</body></html>';

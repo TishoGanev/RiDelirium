@@ -66,7 +66,7 @@ foreach ($riders as $rider) {
     if ($mode !== 'activity') {
         $body = $mode === 'wait' ? 'TEST: WAIT FOR ME · 340 M' : 'Test notification';
         foreach ($devices as $d) {
-            $payload = ['aps' => ['alert' => ['title' => 'RideLirium', 'body' => $body], 'sound' => 'default', 'thread-id' => 'wait', 'interruption-level' => 'time-sensitive'], 'event' => $mode === 'wait' ? 'wait' : 'test'];
+            $payload = ['aps' => ['alert' => ['title' => 'RiDelirium', 'body' => $body], 'sound' => 'default', 'thread-id' => 'wait', 'interruption-level' => 'time-sensitive'], 'event' => $mode === 'wait' ? 'wait' : 'test'];
             $ok = deliver($d, $payload);
             report("alert {$d['platform']} token=" . substr($d['token'], 0, 8) . '…', $ok, $d['platform'] !== 'ios');
         }
@@ -77,7 +77,7 @@ foreach ($riders as $rider) {
             'timestamp' => time(), 'event' => 'update',
             'content-state' => waitContentState($wait, 'request', 1),
             'stale-date' => time() + WAIT_TTL,
-            'alert' => ['title' => 'RideLirium', 'body' => 'TEST: WAIT FOR ME · 340 M'], 'sound' => 'default',
+            'alert' => ['title' => 'RiDelirium', 'body' => 'TEST: WAIT FOR ME · 340 M'], 'sound' => 'default',
         ]];
         report('live activity update', sendApns($activity['token'], (bool)$activity['sandbox'], $payload, 'liveactivity', '.push-type.liveactivity'));
     } elseif ($mode !== 'alert') {

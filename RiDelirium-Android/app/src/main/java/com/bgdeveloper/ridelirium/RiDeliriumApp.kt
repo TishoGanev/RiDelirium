@@ -5,7 +5,7 @@ import com.bgdeveloper.ridelirium.push.PushSetup
 import dagger.hilt.android.HiltAndroidApp
 
 @HiltAndroidApp
-class SnowmanApp : Application() {
+class RiDeliriumApp : Application() {
     override fun onCreate() {
         super.onCreate()
         PushSetup.init(this)

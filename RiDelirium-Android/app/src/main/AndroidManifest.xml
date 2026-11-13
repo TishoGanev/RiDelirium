@@ -16,7 +16,7 @@
     </queries>
 
     <application
-        android:name=".SnowmanApp"
+        android:name=".RiDeliriumApp"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
@@ -51,14 +51,14 @@
 
                 <data android:scheme="https" android:host="ridersapi.sportco.net" android:pathPrefix="/join/" />
             </intent-filter>
-            <!-- Ride Together invite links: snowboarder://join/ABCD2345, also scanned by the iPhone app. -->
+            <!-- Ride Together invite links: ridelirium://join/ABCD2345, also scanned by the iPhone app. -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
 
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
 
-                <data android:scheme="snowboarder" android:host="join" />
+                <data android:scheme="ridelirium" android:host="join" />
             </intent-filter>
         </activity>
 

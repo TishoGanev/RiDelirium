@@ -56,7 +56,7 @@ fun sb(
 )
 
 @Composable
-fun SnowmanTheme(content: @Composable () -> Unit) {
+fun RiDeliriumTheme(content: @Composable () -> Unit) {
     MaterialTheme(
         colorScheme = lightColorScheme(
             primary = Sb.Red,

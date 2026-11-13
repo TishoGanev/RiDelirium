@@ -8,7 +8,7 @@ import androidx.activity.enableEdgeToEdge
 import com.bgdeveloper.ridelirium.friends.FriendsRepository
 import com.bgdeveloper.ridelirium.friends.InviteLink
 import com.bgdeveloper.ridelirium.ui.AppRoot
-import com.bgdeveloper.ridelirium.ui.theme.SnowmanTheme
+import com.bgdeveloper.ridelirium.ui.theme.RiDeliriumTheme
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 
@@ -20,7 +20,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            SnowmanTheme {
+            RiDeliriumTheme {
                 AppRoot()
             }
         }
@@ -32,7 +32,7 @@ class MainActivity : ComponentActivity() {
         handleInvite(intent)
     }
 
-    /** An invite link (https://<api host>/join/ABCD2345 or snowboarder://join/ABCD2345) from a QR scan or a message opens Ride Together and joins. */
+    /** An invite link (https://<api host>/join/ABCD2345 or ridelirium://join/ABCD2345) from a QR scan or a message opens Ride Together and joins. */
     private fun handleInvite(intent: Intent?) {
         val uri = intent?.data ?: return
         if (InviteLink.isInvite(uri.scheme, uri.host, uri.path)) friends.handleLink(uri.toString())

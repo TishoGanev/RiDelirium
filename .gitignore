@@ -43,3 +43,4 @@ Secrets.xcconfig
 
 # Nested repo (own git history)
 RiDelirium-iOS/
+_claude_work/

@@ -181,7 +181,7 @@ function deliver(array $device, array $payload): bool {
 function notifyRider(string $riderId, string $event, string $who): void {
     $body = $event === 'join' ? "$who joined your crew" : "$who left your crew";
     $payload = [
-        'aps' => ['alert' => ['title' => 'SnowMan', 'body' => $body], 'sound' => 'default', 'thread-id' => 'crew'],
+        'aps' => ['alert' => ['title' => 'RiDelirium', 'body' => $body], 'sound' => 'default', 'thread-id' => 'crew'],
         'event' => $event,
     ];
     try {
@@ -236,7 +236,7 @@ function notifyWait(string $riderId, array $wait, ?int $meters): void {
                 'event' => 'update',
                 'content-state' => waitContentState($wait, 'request', max(1, $pending)),
                 'stale-date' => time() + WAIT_TTL,
-                'alert' => ['title' => 'RideLirium', 'body' => $body],
+                'alert' => ['title' => 'RiDelirium', 'body' => $body],
                 'sound' => 'default',
             ]];
             if (!sendApns($activity['token'], (bool)$activity['sandbox'], $payload, 'liveactivity', '.push-type.liveactivity')) {
@@ -244,7 +244,7 @@ function notifyWait(string $riderId, array $wait, ?int $meters): void {
             }
         }
         $payload = [
-            'aps' => ['alert' => ['title' => 'RideLirium', 'body' => $body], 'sound' => 'default', 'thread-id' => 'wait', 'interruption-level' => 'time-sensitive'],
+            'aps' => ['alert' => ['title' => 'RiDelirium', 'body' => $body], 'sound' => 'default', 'thread-id' => 'wait', 'interruption-level' => 'time-sensitive'],
             'event' => 'wait',
             'waitId' => $wait['id'],
         ];
@@ -261,7 +261,7 @@ function notifyWait(string $riderId, array $wait, ?int $meters): void {
 /** The friend answered: tell the sender they are being waited for. */
 function notifyWaitAccepted(string $riderId, string $who): void {
     $payload = [
-        'aps' => ['alert' => ['title' => 'RideLirium', 'body' => mb_strtoupper($who) . ' IS WAITING FOR YOU'], 'sound' => 'default', 'thread-id' => 'wait'],
+        'aps' => ['alert' => ['title' => 'RiDelirium', 'body' => mb_strtoupper($who) . ' IS WAITING FOR YOU'], 'sound' => 'default', 'thread-id' => 'wait'],
         'event' => 'wait-accepted',
     ];
     try {
@@ -278,7 +278,7 @@ function notifyWaitAccepted(string $riderId, string $who): void {
 /** A recent riding partner asks `$riderId` to join their crew; tapping the notification opens the app on the code. */
 function notifyInvite(string $riderId, string $who, string $code): void {
     $payload = [
-        'aps' => ['alert' => ['title' => 'RideLirium', 'body' => mb_strtoupper($who) . ' INVITES YOU TO RIDE TOGETHER'], 'sound' => 'default', 'thread-id' => 'invite'],
+        'aps' => ['alert' => ['title' => 'RiDelirium', 'body' => mb_strtoupper($who) . ' INVITES YOU TO RIDE TOGETHER'], 'sound' => 'default', 'thread-id' => 'invite'],
         'event' => 'invite',
         'code' => $code,
     ];

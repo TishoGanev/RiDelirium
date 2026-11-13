@@ -21,14 +21,14 @@ class InviteLinkTest {
     @Test
     fun spacesAreEncodedLikeIos() {
         assertEquals(
-            "snowboarder://join/ABCD2345?id=147437F1-A106-4793-B264-DEDAD024E171&name=Alex%20Rider&initials=AR",
+            "ridelirium://join/ABCD2345?id=147437F1-A106-4793-B264-DEDAD024E171&name=Alex%20Rider&initials=AR",
             InviteLink.url("ABCD2345", alex),
         )
     }
 
     @Test
     fun parsesIosLink() {
-        val (code, inviter) = InviteLink.parse("snowboarder://join/ABCD2345?id=abc-1&name=Bo%20Test&initials=BT")!!
+        val (code, inviter) = InviteLink.parse("ridelirium://join/ABCD2345?id=abc-1&name=Bo%20Test&initials=BT")!!
         assertEquals("ABCD2345", code)
         assertEquals(Friend("ABC-1", "Bo Test", "BT"), inviter)
     }
@@ -37,12 +37,12 @@ class InviteLinkTest {
     fun typedCodeNeedsEightLettersOrDigits() {
         assertEquals("ABCD2345" to null, InviteLink.parse("abcd-2345"))
         assertNull(InviteLink.parse("ABC"))
-        assertNull(InviteLink.parse("snowboarder://join/ABC"))
+        assertNull(InviteLink.parse("ridelirium://join/ABC"))
     }
 
     @Test
     fun linkWithoutInviterStillJoins() {
-        assertEquals("ABCD2345" to null, InviteLink.parse("snowboarder://join/ABCD2345"))
+        assertEquals("ABCD2345" to null, InviteLink.parse("ridelirium://join/ABCD2345"))
     }
 
     @Test
@@ -59,7 +59,7 @@ class InviteLinkTest {
         assertEquals(true, InviteLink.isInvite("https", "ridersapi.sportco.net", "/join/ABCD2345", "ridersapi.sportco.net"))
         assertEquals(false, InviteLink.isInvite("https", "ridersapi.sportco.net", "/other", "ridersapi.sportco.net"))
         assertEquals(false, InviteLink.isInvite("https", "evil.example", "/join/ABCD2345", "ridersapi.sportco.net"))
-        assertEquals(true, InviteLink.isInvite("snowboarder", "join", "/ABCD2345", null))
+        assertEquals(true, InviteLink.isInvite("ridelirium", "join", "/ABCD2345", null))
     }
 
     @Test

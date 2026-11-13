@@ -81,7 +81,7 @@ Without the key the API runs normally and sends nothing. Check with `docker logs
 ## Invite links for messengers (Viber, WhatsApp, ...)
 
 Invites are `https://ridersapi.sportco.net/join/CODE`. The API serves:
-- `/join/CODE`: a page for people without the app ("X invited you", Open in SnowMan, the code, store buttons when `APP_STORE_URL` / `PLAY_STORE_URL` are set).
+- `/join/CODE`: a page for people without the app ("X invited you", Open in RiDelirium, the code, store buttons when `APP_STORE_URL` / `PLAY_STORE_URL` are set).
 - `/.well-known/apple-app-site-association`: needs `APNS_TEAM_ID` and `APNS_TOPIC` in `.env`; makes the link open the iPhone app.
 - `/.well-known/assetlinks.json`: needs `ANDROID_CERT_SHA256` (release signing certificate, comma separated for several); makes the link open the Android app.
 

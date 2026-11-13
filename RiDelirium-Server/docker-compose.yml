@@ -11,7 +11,7 @@ services:
       APNS_KEY_FILE: /run/secrets/apns.p8
       APNS_KEY_ID: ${APNS_KEY_ID:-}
       APNS_TEAM_ID: ${APNS_TEAM_ID:-}
-      APNS_TOPIC: ${APNS_TOPIC:-com.bgdeveloper.thesnowboarder}
+      APNS_TOPIC: ${APNS_TOPIC:-com.bgdeveloper.ridelirium}
       FCM_KEY_FILE: /run/secrets/fcm.json
       FCM_PROJECT_ID: ${FCM_PROJECT_ID:-}
       ANDROID_CERT_SHA256: ${ANDROID_CERT_SHA256:-}

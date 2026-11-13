@@ -29,7 +29,7 @@ object CrewNotifications {
         val open = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
             // Tapping an invite joins that crew, the same as scanning its link.
-            if (event == "invite") data["code"]?.let { this.data = Uri.parse("snowboarder://join/$it") }
+            if (event == "invite") data["code"]?.let { this.data = Uri.parse("ridelirium://join/$it") }
         }
         val builder = NotificationCompat.Builder(context, CHANNEL)
             .setSmallIcon(R.mipmap.ic_launcher)

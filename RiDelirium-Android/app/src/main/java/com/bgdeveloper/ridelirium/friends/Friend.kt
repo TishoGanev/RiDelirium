@@ -41,7 +41,7 @@ data class Invite(val code: String, val inviter: Friend?) {
 
 /** Same format as the iPhone app, so either platform can scan the other's QR code. */
 object InviteLink {
-    const val SCHEME = "snowboarder"
+    const val SCHEME = "ridelirium"
     private const val PREFIX = "$SCHEME://join"
     private const val WEB_PATH = "/join/"
 
@@ -65,7 +65,7 @@ object InviteLink {
         return "$PREFIX/$code$query"
     }
 
-    /** Whether [scheme]/[host]/[path] is an invite for this app: the https link or the snowboarder:// form. */
+    /** Whether [scheme]/[host]/[path] is an invite for this app: the https link or the ridelirium:// form. */
     fun isInvite(scheme: String?, host: String?, path: String?, webHost: String? = configuredHost): Boolean =
         (scheme == SCHEME && host == "join") ||
             (scheme == "https" && webHost != null && host.equals(webHost, ignoreCase = true) && path.orEmpty().startsWith(WEB_PATH))
