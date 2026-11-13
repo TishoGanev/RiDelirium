@@ -48,6 +48,10 @@ data class FriendsState(
     val recentRiders: List<Friend> = emptyList(),
     /** Recent riders already asked, until they join. */
     val invitedIds: Set<String> = emptySet(),
+    /** "NAME JUST JOINED", shown for four seconds on the share screen. */
+    val joinBanner: String? = null,
+    /** No server configured, or the last call to it failed; the sheet then says "WE ARE OFFLINE". */
+    val offline: Boolean = false,
 ) {
     /** Friends who are riding right now; anyone who stopped sharing or left drops out. */
     val ridingNow: List<Friend> get() = friends.filter { it.isRiding }
@@ -71,7 +75,8 @@ class FriendsRepository @Inject constructor(
     private val api = RideTogetherApi()
     private val registration = Mutex()
 
-    private val _state = MutableStateFlow(FriendsState())
+    private val _state = MutableStateFlow(FriendsState(offline = !api.isConfigured))
+    private var hasLoadedFriends = false
     val state: StateFlow<FriendsState> = _state.asStateFlow()
 
     /** Any screen can ask for the Ride Together sheet; the Track screen presents it. */
@@ -216,8 +221,11 @@ class FriendsRepository @Inject constructor(
         val me = _state.value.me ?: return
         if (_state.value.invite != null) return
         val code = runCatching { authorized { api.inviteCode(it) } }.getOrNull()
-        if (code == null) return fail(NO_SIGNAL)
-        _state.update { it.copy(invite = Invite(code, me), joinError = null) }
+        if (code == null) {
+            _state.update { it.copy(offline = true) }
+            return fail(NO_SIGNAL)
+        }
+        _state.update { it.copy(invite = Invite(code, me), joinError = null, offline = false) }
     }
 
     /**
@@ -228,7 +236,7 @@ class FriendsRepository @Inject constructor(
         syncPendingJoins()
         val known = runCatching { authorized { api.friends(it) } }.getOrNull()
         if (known == null) {
-            _state.update { it.copy(friends = merged(it.friends, localCrew())) }
+            _state.update { it.copy(friends = merged(it.friends, localCrew()), offline = api.isConfigured) }
             return
         }
         writeServerCrew(known)
@@ -242,14 +250,21 @@ class FriendsRepository @Inject constructor(
                 friends = crew,
                 recentRiders = s.recentRiders.filter { r -> crew.none { it.id == r.id } },
                 invitedIds = s.invitedIds - crew.map { it.id }.toSet(),
+                offline = false,
             )
         }
-        // Someone joined our code while its screen was open: nothing to confirm, so close it.
+        // Someone new in the crew: say who, once the first load is past (not for the whole crew at launch).
         val state = _state.value
-        if (_showSheet.value && state.invite != null && state.justJoined == null && !state.isJoining &&
-            state.friends.any { it.id !in before }
-        ) {
-            showSheet(false)
+        val joined = state.friends.firstOrNull { it.id !in before }
+        if (hasLoadedFriends && joined != null && state.justJoined == null && !state.isJoining) showJoinBanner(joined.displayName)
+        hasLoadedFriends = true
+    }
+
+    private fun showJoinBanner(name: String) {
+        _state.update { it.copy(joinBanner = name) }
+        scope.launch {
+            delay(4_000)
+            _state.update { if (it.joinBanner == name) it.copy(joinBanner = null) else it }
         }
     }
 
@@ -501,6 +516,6 @@ class FriendsRepository @Inject constructor(
         const val INVALID_CODE = "That code doesn't look right. Codes are 8 letters and numbers."
         const val OWN_CODE = "That's your own code. Let a friend scan it instead."
         const val NO_NAME = "Add your name first to ride together."
-        const val NO_SIGNAL = "Couldn't reach the server. Check your signal and try again."
+        const val NO_SIGNAL = "We are offline. Check your signal and try again."
     }
 }

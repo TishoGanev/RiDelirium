@@ -1,5 +1,9 @@
 package com.bgdeveloper.ridelirium.ui.friends
 
+import android.os.Build
+import android.view.HapticFeedbackConstants
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.ui.platform.LocalView
 import android.content.Intent
 import android.widget.Toast
 import android.graphics.Bitmap
@@ -96,21 +100,34 @@ fun RideTogetherSheet(onDismiss: () -> Unit, viewModel: FriendsViewModel = hiltV
     var tab by remember { mutableStateOf(Tab.SHARE) }
     var confirmLeave by remember { mutableStateOf(false) }
     val context = LocalContext.current
+    val view = LocalView.current
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
     LaunchedEffect(Unit) { while (true) { delay(5_000); now = System.currentTimeMillis() } }
     val waitSent = remember { androidx.compose.runtime.mutableStateMapOf<String, Long>() }
 
     LaunchedEffect(ui.me) { if (ui.me != null) viewModel.loadInvite() }
+    // The screen stays awake while the code is up, so it does not lock before the friend has scanned it.
+    val showingCode = page == Page.ADD && tab == Tab.SHARE
+    DisposableEffect(showingCode) {
+        view.keepScreenOn = showingCode
+        onDispose { view.keepScreenOn = false }
+    }
+    // A friend just joined: a small confirming tap, like the success haptic on iOS.
+    LaunchedEffect(ui.joinBanner) {
+        if (ui.joinBanner != null) {
+            view.performHapticFeedback(
+                if (Build.VERSION.SDK_INT >= 30) HapticFeedbackConstants.CONFIRM else HapticFeedbackConstants.VIRTUAL_KEY,
+            )
+        }
+    }
     val crewName = ui.me?.let { "${it.displayName.uppercase()} CREW" } ?: "YOUR CREW"
 
     ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Color.White) {
         Column(Modifier.verticalScroll(rememberScrollState()).padding(bottom = 28.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             when {
-                !viewModel.isConfigured -> Text(
-                    "Ride Together isn't set up yet. Add API_BASE_URL to local.properties.",
-                    style = sb(17, FontWeight.SemiBold), color = Sb.Secondary, modifier = Modifier.padding(horizontal = 20.dp),
-                )
                 ui.justJoined != null -> JoinedScreen(ui.justJoined!!, onDismiss)
+                ui.me == null && viewModel.isConfigured -> NameStep(onSave = viewModel::setName)
+                ui.offline && ui.invite == null && ui.friends.isEmpty() -> OfflineStep(onRetry = viewModel::loadInvite)
                 ui.me == null -> NameStep(onSave = viewModel::setName)
                 page == Page.CREW -> CrewPage(
                     crewName, ui.friends, ui.recentRiders, ui.invitedIds, ui.invite?.code, ui.invite?.url, units, now, waitSent,
@@ -134,7 +151,7 @@ fun RideTogetherSheet(onDismiss: () -> Unit, viewModel: FriendsViewModel = hiltV
                 else -> AddPage(
                     title = if (ui.friends.isEmpty()) "ADD TO YOUR CREW" else "ADD TO $crewName",
                     tab = tab, onTab = { tab = it; viewModel.clearError() }, onBack = { page = Page.CREW },
-                    code = ui.invite?.code, url = ui.invite?.url, isJoining = ui.isJoining,
+                    code = ui.invite?.code, url = ui.invite?.url, isJoining = ui.isJoining, joinBanner = ui.joinBanner,
                     error = ui.joinError, onRetry = viewModel::loadInvite, onJoin = viewModel::join,
                     onShare = { shareInvite(context, ui.invite?.code, ui.invite?.url, onDismiss) },
                 )
@@ -339,7 +356,7 @@ private fun CodeCard(code: String?, url: String?, onClick: () -> Unit) {
 @Composable
 private fun AddPage(
     title: String, tab: Tab, onTab: (Tab) -> Unit, onBack: () -> Unit, code: String?, url: String?,
-    isJoining: Boolean, error: String?, onRetry: () -> Unit, onJoin: (String) -> Unit, onShare: () -> Unit,
+    isJoining: Boolean, joinBanner: String?, error: String?, onRetry: () -> Unit, onJoin: (String) -> Unit, onShare: () -> Unit,
 ) {
     Column(Modifier.padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
         Box(Modifier.fillMaxWidth().padding(top = 4.dp), contentAlignment = Alignment.Center) {
@@ -355,7 +372,7 @@ private fun AddPage(
             SegmentOption("JOIN CREW", tab == Tab.JOIN, Modifier.weight(1f)) { onTab(Tab.JOIN) }
         }
         when (tab) {
-            Tab.SHARE -> ShareTab(url, code, failed = error != null, onRetry = onRetry, onShare = onShare)
+            Tab.SHARE -> ShareTab(url, code, joinBanner, failed = error != null, onRetry = onRetry, onShare = onShare)
             Tab.JOIN -> JoinTab(isJoining, onJoin)
         }
         error?.let { Text(it, style = sb(14, FontWeight.SemiBold), color = Sb.Red) }
@@ -363,7 +380,7 @@ private fun AddPage(
 }
 
 @Composable
-private fun ShareTab(url: String?, code: String?, failed: Boolean, onRetry: () -> Unit, onShare: () -> Unit) {
+private fun ShareTab(url: String?, code: String?, joinBanner: String?, failed: Boolean, onRetry: () -> Unit, onShare: () -> Unit) {
     if (url == null || code == null) {
         if (failed) {
             TextButton(onClick = onRetry) { Text("TRY AGAIN", style = sb(18, FontWeight.ExtraBold), color = Sb.Red) }
@@ -386,6 +403,15 @@ private fun ShareTab(url: String?, code: String?, failed: Boolean, onRetry: () -
             style = sb(16, FontWeight.SemiBold), color = Sb.Secondary, textAlign = androidx.compose.ui.text.style.TextAlign.Center,
             modifier = Modifier.widthIn(max = 300.dp),
         )
+        if (joinBanner != null) {
+            Row(
+                Modifier.height(40.dp).clip(RoundedCornerShape(20.dp)).background(Color(0xFFEAF6EE)).padding(horizontal = 16.dp),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Box(Modifier.size(10.dp).clip(CircleShape).background(StatusGreen))
+                Text("${joinBanner.uppercase()} JUST JOINED", style = sb(15), color = Color(0xFF1F7A3A))
+            }
+        }
     }
     Box(
         Modifier.fillMaxWidth().height(58.dp).clip(CircleShape).background(Sb.Red).clickable(onClick = onShare),
@@ -430,6 +456,20 @@ private fun SegmentOption(title: String, selected: Boolean, modifier: Modifier, 
 }
 
 // endregion
+
+/** No server configured, or it can't be reached: nothing here works without it. */
+@Composable
+private fun OfflineStep(onRetry: () -> Unit) {
+    Column(Modifier.padding(horizontal = 20.dp).padding(top = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text("RIDE TOGETHER", style = sb(32, FontWeight.ExtraBold), color = Sb.Charcoal)
+        Text("WE ARE OFFLINE", style = sb(20), color = Sb.Red, modifier = Modifier.padding(top = 12.dp))
+        Text(
+            "Check your signal. Your crew and invite code come back as soon as you are connected.",
+            style = sb(17, FontWeight.SemiBold), color = Sb.Secondary,
+        )
+        BigButton("TRY AGAIN", Sb.Red, Color.White, onRetry)
+    }
+}
 
 @Composable
 private fun NameStep(onSave: (String) -> Unit) {
