@@ -1,4 +1,4 @@
-/* Snowboarder — marketing site. Plain CSS, no build step. Tokens come from the app's design handoff. */
+/* RiDelirium — marketing site. Plain CSS, no build step. Tokens come from the app's design handoff. */
 
 @font-face { font-family: "Open Sans Condensed"; font-weight: 600; font-display: swap;
   src: url("../assets/fonts/OpenSans-CondensedSemiBold.ttf") format("truetype"); }
@@ -98,7 +98,9 @@ section:not(.tinted) .card { background: var(--grey); box-shadow: none; }
 .gallery { display: flex; gap: 24px; overflow-x: auto; padding: 8px 20px 30px; scroll-snap-type: x mandatory; justify-content: flex-start; -webkit-overflow-scrolling: touch; }
 .gallery > figure { margin: 0; flex: 0 0 auto; scroll-snap-align: center; text-align: center; }
 .gallery figcaption { margin-top: 14px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; font-size: 14px; color: var(--grey-text); }
-@media (min-width: 1200px) { .gallery { justify-content: center; } }
+/* Centred when it fits, scrollable from the first phone when it doesn't (justify-content: center would cut off the left edge). */
+.gallery > figure:first-child { margin-left: auto; }
+.gallery > figure:last-child { margin-right: auto; }
 
 .faq details { border-bottom: 1px solid var(--divider); padding: 18px 0; }
 .faq summary { cursor: pointer; font-weight: 800; font-size: 22px; list-style: none; display: flex; justify-content: space-between; gap: 16px; }
@@ -157,13 +159,33 @@ section:not(.tinted) .card { background: var(--grey); box-shadow: none; }
 .m-btns { display: flex; gap: 6px; }
 .m-btn { height: 40px; border-radius: 13px; display: grid; place-items: center; font-weight: 700; font-size: 14px; background: var(--grey); color: var(--grey-text); flex: 1; }
 .m-btn.red { background: var(--red); color: #fff; flex: 1.4; }
-.m-tabbar { position: absolute; left: 8px; right: 8px; bottom: 10px; height: 44px; background: var(--red); border-radius: 18px; display: flex; align-items: center; gap: 4px; padding: 0 5px; color: #fff; font-weight: 700; font-size: 12px; letter-spacing: .03em; }
-.m-tab { flex: 1; height: 33px; border-radius: 14px; display: grid; place-items: center; opacity: .8; }
+.m-tabbar { position: absolute; left: 8px; right: 54px; bottom: 12px; height: 40px; background: var(--red); border-radius: 18px; display: flex; align-items: center; gap: 4px; padding: 0 5px; color: #fff; font-weight: 700; font-size: 12px; letter-spacing: .03em; }
+.m-tab { flex: 1; height: 30px; border-radius: 13px; display: grid; place-items: center; opacity: .8; }
 .m-tab.on { background: rgba(0,0,0,.2); opacity: 1; }
-.m-weather { position: absolute; top: 40px; left: 10px; right: 10px; background: var(--red); color: #fff; border-radius: 14px; padding: 8px 11px; display: flex; gap: 8px; align-items: center; box-shadow: 0 5px 14px rgba(0,0,0,.35); }
-.m-weather .sun { width: 20px; height: 20px; border-radius: 50%; background: var(--sun); border: 2px solid #fff; flex: 0 0 auto; }
-.m-weather b { font-size: 16px; font-weight: 800; display: block; }
-.m-weather span { font-size: 8.5px; font-weight: 700; letter-spacing: .04em; opacity: .9; }
+.m-gear { position: absolute; right: 8px; bottom: 12px; width: 40px; height: 40px; border-radius: 50%; background: var(--red); display: grid; place-items: center; box-shadow: 0 5px 12px rgba(0,0,0,.3); }
+.m-gear i { width: 14px; height: 14px; border-radius: 50%; border: 3.5px dotted #fff; display: block; }
+.m-crew { position: absolute; top: 38px; left: 10px; right: 10px; height: 36px; background: #fff; border-radius: 99px; display: flex; align-items: center; gap: 8px; padding: 0 12px 0 5px; box-shadow: 0 5px 14px rgba(0,0,0,.35); }
+.m-crew .av { display: flex; }
+.m-crew .av i { width: 24px; height: 24px; border-radius: 50%; border: 2px solid #fff; margin-left: -8px; display: block; }
+.m-crew .av i:first-child { margin-left: 0; }
+.m-crew b { display: block; font-size: 11px; font-weight: 800; white-space: nowrap; }
+.m-crew span { display: block; font-size: 8px; font-weight: 700; color: var(--secondary); letter-spacing: .04em; }
+.m-crew .ch { margin-left: auto; width: 6px; height: 6px; border: solid #BDBDBD; border-width: 2px 2px 0 0; transform: rotate(45deg); }
+.m-tag { position: absolute; display: flex; align-items: center; gap: 4px; background: #fff; border-radius: 99px; padding: 2px 7px 2px 2px; box-shadow: 0 3px 8px rgba(0,0,0,.45); transform: translate(-50%, -100%); }
+.m-tag i { width: 16px; height: 16px; border-radius: 50%; display: block; }
+.m-tag b { font-size: 8.5px; font-weight: 800; line-height: 1; }
+.m-tag span { display: block; font-size: 6.5px; font-weight: 700; }
+.m-idle { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+.m-idle span { display: block; font-size: 8.5px; letter-spacing: .04em; color: var(--secondary); font-weight: 700; }
+.m-idle b { font-size: 19px; font-weight: 800; white-space: nowrap; display: flex; align-items: center; gap: 4px; }
+.m-idle b i { width: 6px; height: 6px; border-radius: 50%; background: #30D158; display: block; }
+.m-idle em { display: block; font-style: normal; font-size: 8px; font-weight: 700; color: var(--secondary); letter-spacing: .04em; margin-top: 2px; }
+.m-idle .r { text-align: right; } .m-idle .r b { justify-content: flex-end; }
+.m-start { height: 44px; border-radius: 14px; background: var(--red); color: #fff; display: flex; align-items: center; justify-content: center; gap: 7px; font-weight: 700; font-size: 15px; white-space: nowrap; padding: 0 10px; }
+.m-start i { width: 10px; height: 10px; border-radius: 50%; background: #fff; display: block; flex: none; }
+.m-start small { font-size: 9px; }
+.m-pin { position: absolute; right: 10px; width: 34px; height: 34px; border-radius: 50%; background: #fff; display: grid; place-items: center; box-shadow: 0 4px 10px rgba(0,0,0,.35); }
+.m-pin i { width: 12px; height: 12px; border-radius: 99px 99px 99px 0; transform: rotate(-45deg); background: var(--charcoal); display: block; }
 .m-row { display: flex; align-items: center; gap: 9px; height: 52px; padding: 0 12px; border-bottom: 1px solid var(--divider); }
 .m-row .d { font-size: 26px; font-weight: 700; width: 30px; text-align: right; }
 .m-row .mo { width: 26px; font-size: 10px; font-weight: 700; color: var(--red); line-height: 1.2; }

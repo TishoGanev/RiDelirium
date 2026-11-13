@@ -5,6 +5,7 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.hilt)
     alias(libs.plugins.ksp)
+    alias(libs.plugins.firebase.crashlytics)
 }
 
 // Keys live in the gitignored local.properties: MAPS_API_KEY, FACEBOOK_APP_ID.
@@ -22,7 +23,7 @@ val fcmApiKey = localProps.getProperty("FCM_API_KEY", "")
 val fcmSenderId = localProps.getProperty("FCM_SENDER_ID", "")
 
 android {
-    namespace = "com.bgdeveloper.snowman"
+    namespace = "com.bgdeveloper.ridelirium"
     compileSdk {
         version = release(37)
     }

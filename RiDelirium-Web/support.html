@@ -3,13 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Support — Snowboarder</title>
-<meta name="description" content="Help for the Snowboarder app: tracking, permissions, battery, sharing and your data.">
+<title>Support — RiDelirium</title>
+<meta name="description" content="Help for the RiDelirium app: tracking, permissions, battery, sharing and your data.">
 <meta name="theme-color" content="#ED213D">
 <link rel="icon" type="image/png" href="assets/favicon.png">
 <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
-<meta property="og:title" content="Support — Snowboarder">
-<meta property="og:description" content="Help for the Snowboarder app: tracking, permissions, battery, sharing and your data.">
+<meta property="og:title" content="Support — RiDelirium">
+<meta property="og:description" content="Help for the RiDelirium app: tracking, permissions, battery, sharing and your data.">
 <meta property="og:image" content="assets/icon-512.png">
 <link rel="stylesheet" href="css/style.css">
 </head>
@@ -17,7 +17,7 @@
 <a class="skip" href="#main">Skip to content</a>
 <header class="site-header">
   <div class="wrap">
-    <a class="brand" href="index.html"><img src="assets/icon-512.png" alt="" width="36" height="36">SNOWBOARDER</a>
+    <a class="brand" href="index.html"><img src="assets/icon-512.png" alt="" width="36" height="36">RIDELIRIUM</a>
     <nav class="nav" aria-label="Main">
       <a class="hide-sm" href="index.html#features">Features</a>
       <a class="hide-sm" href="index.html#screens">Screens</a>
@@ -27,17 +27,16 @@
   </div>
 </header>
 
-<!-- TODO before publishing: replace support@yourdomain.com. -->
 <main id="main">
 <div class="doc-hero"><div class="wrap" style="max-width:760px"><h1>Support</h1><p>Help with tracking, permissions, sharing and your data.</p></div></div>
 <div class="doc"><div class="wrap">
 
-<div class="callout"><strong>Need a hand?</strong> Email <a href="mailto:support@yourdomain.com">support@yourdomain.com</a>. Tell us your phone model, OS version and what happened, and we’ll get back to you.</div>
+<div class="callout"><strong>Need a hand?</strong> Email <a data-u="support" data-d="ridelirium.app" href="#" rel="nofollow">support [at] ridelirium.app</a>. Tell us your phone model, OS version and what happened, and we’ll get back to you.</div>
 
 <h2>Getting started</h2>
 <ol>
   <li>Open the app and allow location access when asked.</li>
-  <li>Wait for <strong>GPS LOCKED</strong> on the Track card.</li>
+  <li>Wait until the <strong>START TRACKING</strong> button shows a GPS reading, for example <strong>GPS ±4 M</strong>.</li>
   <li>Tap <strong>START TRACKING</strong> at the lift or the top of the first run.</li>
   <li>Tap <strong>STOP</strong> when you’re done. The ride appears in <strong>Stats</strong>.</li>
 </ol>
@@ -46,13 +45,13 @@
 
 <h3>My ride didn’t record, or stopped when the screen turned off</h3>
 <ul>
-  <li>Check location permission. On iPhone choose <em>Always</em> (or <em>While Using</em>) for Snowboarder in Settings → Privacy &amp; Security → Location Services. On Android allow location and notifications for the app.</li>
-  <li>On Android, don’t swipe the app away or restrict its battery use while recording. Some phones stop apps aggressively; set Snowboarder to “Unrestricted” in battery settings.</li>
+  <li>Check location permission. On iPhone choose <em>Always</em> (or <em>While Using</em>) for RiDelirium in Settings → Privacy &amp; Security → Location Services. On Android allow location and notifications for the app.</li>
+  <li>On Android, don’t swipe the app away or restrict its battery use while recording. Some phones stop apps aggressively; set RiDelirium to “Unrestricted” in battery settings.</li>
   <li>Wait for a GPS lock before you start. Under thick cloud or in a gondola the signal can be weak.</li>
 </ul>
 
 <h3>The numbers look off (distance, speed, altitude)</h3>
-<p>GPS is less accurate with a weak signal, and altitude from GPS can drift by several metres. The app ignores readings with poor accuracy and doesn’t count GPS drift while you stand still. “WEAK GPS” on the Track card means accuracy is low right now.</p>
+<p>GPS is less accurate with a weak signal, and altitude from GPS can drift by several metres. The app ignores readings with poor accuracy and doesn’t count GPS drift while you stand still. “WEAK GPS” on the START TRACKING button means accuracy is low right now.</p>
 
 <h3>Runs and lifts are labelled wrongly</h3>
 <p>Runs, lifts and stops are worked out from your altitude and speed. A very short run, a long flat traverse, or a slow T-bar can be labelled differently than you’d expect. Send us the date and what you expected and we’ll use it to improve the detection.</p>
@@ -66,12 +65,12 @@
   <li><strong>Your profile or feed:</strong> pick “Post to my profile…” (iPhone) or “More…” (Android) and choose the app in the share sheet. Instagram’s share sheet entry may only offer messages; use Save Image and post it from Instagram.</li>
 </ul>
 
-<h3>Group voice</h3>
+<h3>Ride Together</h3>
 <ul>
-  <li>Tap the microphone button on the Track screen. Everyone who uses the same group code is in one call. Share your code from the same screen, or type a friend’s code to join theirs.</li>
-  <li>Allow microphone access when asked. On Android also allow notifications, so the call keeps running with the screen off.</li>
-  <li>Use <strong>Open mic</strong> with a headset or helmet speaker, or <strong>Push to talk</strong> in wind. Wear a headset: don’t hold the phone while you ride.</li>
-  <li>You need a data connection for the call. If the mountain signal drops, rejoin when it returns.</li>
+  <li>Tap <strong>RIDE WITH SOMEONE</strong> at the top of the Track screen. Show your QR code or send your invite link, or scan a friend’s code to join their crew.</li>
+  <li>Friends in your crew appear on your map while the app is open. <strong>YOUR CREW</strong> on the Track card shows how many are online and offline.</li>
+  <li>Tap a rider on the map and press <strong>WAIT</strong> to ask them to wait for you. Allow notifications so you get their answer.</li>
+  <li>You need a data connection to see your crew. If the mountain signal drops, they reappear when it returns.</li>
 </ul>
 
 <h3>Export my rides</h3>
@@ -103,5 +102,6 @@
   </div>
 </footer>
 <script>document.getElementById("year").textContent = new Date().getFullYear();</script>
+<script src="js/mail.js" defer></script>
 </body>
 </html>
