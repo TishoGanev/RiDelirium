@@ -1,6 +1,14 @@
 package com.bgdeveloper.ridelirium.ui.stats
 
-import androidx.compose.foundation.border
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.Fill
+import androidx.compose.ui.graphics.drawscope.Stroke
+import com.bgdeveloper.ridelirium.ui.navigationBarBottom
 import androidx.compose.material3.Icon
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
@@ -17,6 +25,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
@@ -41,7 +50,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -108,17 +116,23 @@ fun DailyStatsScreen(onBack: () -> Unit, viewModel: DailyStatsViewModel = hiltVi
             ReplayControls(ui, viewModel)
         } else {
             Row(
-                Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 106.dp),
+                Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 106.dp + navigationBarBottom()),
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                ActionButton("REPLAY", Color.White, Sb.GreyButtonText, Modifier.weight(1f), onClick = viewModel::startReplay)
-                ActionButton("SHARE", Color.White, Sb.GreyButtonText, Modifier.weight(1f), loading = ui.isPreparingShare) {
+                ActionButton(
+                    "REPLAY", ActionIcon.Play, primary = false, modifier = Modifier.weight(1f),
+                    enabled = (ui.session?.points?.size ?: 0) >= 2, onClick = viewModel::startReplay,
+                )
+                ActionButton("SHARE", ActionIcon.Share, primary = true, modifier = Modifier.weight(1.3f), loading = ui.isPreparingShare) {
                     scope.launch {
                         val snapshots = map?.let { shareSnapshots(it, ui.session?.coordinates.orEmpty(), padding) }.orEmpty()
                         viewModel.prepareShare(snapshots)
                     }
                 }
-                ActionButton("EXPORT", Color.White, Sb.GreyButtonText, Modifier.weight(1f), onClick = viewModel::export)
+                ActionButton(
+                    "CSV", ActionIcon.Download, primary = false, modifier = Modifier.weight(1f),
+                    contentDescription = "Export CSV", onClick = viewModel::export,
+                )
             }
         }
     }
@@ -188,30 +202,35 @@ private fun Header(ui: DailyUiState, onBack: () -> Unit, onShowSegments: () -> U
     val session = ui.session
     Column(
         Modifier.fillMaxWidth().background(Sb.Red)
-            .padding(top = statusBarTop() + 8.dp, start = 20.dp, end = 20.dp, bottom = 22.dp),
+            .padding(top = statusBarTop() + 8.dp, start = 20.dp, end = 20.dp, bottom = 16.dp),
     ) {
-        Row(
-            Modifier.height(44.dp).clickable(onClick = onBack).padding(end = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Chevron(color = Color.White, pointsLeft = true)
-            Text("STATS", style = sb(16), color = Color.White)
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                Modifier.height(44.dp).clickable(onClick = onBack).padding(end = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Chevron(color = Color.White, pointsLeft = true)
+                Text("STATS", style = sb(16), color = Color.White)
+            }
+            Spacer(Modifier.weight(1f))
+            InsightsButton(onShowInsights)
         }
         Text(
-            ui.kicker, style = sb(18, tracking = 0.04f), color = Color.White,
-            maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 8.dp),
+            ui.kicker, style = sb(15, tracking = 0.04f), color = Color.White,
+            maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 6.dp),
         )
         HeroNumber(
             value = "%.1f".format(ui.units.distanceValue(session?.distance ?: 0.0)),
             captionLines = listOf(ui.units.distanceUnit.uppercase(), "${ui.units.speed(session?.maxSpeed ?: 0.0)} MAX"),
             modifier = Modifier.padding(top = 6.dp),
+            size = 56,
         )
         if (ui.analysis.segments.isNotEmpty()) {
             val analysis = ui.analysis
             val lifts = analysis.lifts.size
             Row(
-                Modifier.padding(top = 4.dp).clickable(onClick = onShowSegments),
+                Modifier.padding(top = 3.dp).clickable(onClick = onShowSegments),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
@@ -219,7 +238,7 @@ private fun Header(ui: DailyUiState, onBack: () -> Unit, onShowSegments: () -> U
                     "RIDING ${ui.units.compactDuration(analysis.duration(Activity.RUN))} · " +
                         "$lifts ${if (lifts == 1) "LIFT" else "LIFTS"} ${ui.units.compactDuration(analysis.duration(Activity.LIFT))} · " +
                         "STOPPED ${ui.units.compactDuration(analysis.duration(Activity.STILL))}",
-                    style = sb(14, tracking = 0.04f), color = Color.White.copy(alpha = 0.88f),
+                    style = sb(13, tracking = 0.04f), color = Color.White.copy(alpha = 0.88f),
                     maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false),
                 )
                 Chevron(color = Color.White, size = 9.dp)
@@ -230,31 +249,25 @@ private fun Header(ui: DailyUiState, onBack: () -> Unit, onShowSegments: () -> U
             Text(
                 "$runs ${if (runs == 1) "RUN" else "RUNS"} · ${ui.units.distance(ui.analysis.downhillDistance)} DOWNHILL · " +
                     "${ui.units.altitude(ui.analysis.totalVertical)} DESCENT",
-                style = sb(14, tracking = 0.04f), color = Color.White.copy(alpha = 0.88f),
-                maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp),
+                style = sb(13, tracking = 0.04f), color = Color.White.copy(alpha = 0.88f),
+                maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 3.dp),
             )
         }
-        InsightsButton(onShowInsights)
     }
 }
 
 @Composable
 private fun InsightsButton(onClick: () -> Unit) {
-    val shape = RoundedCornerShape(20.dp)
     Row(
-        Modifier.padding(top = 14.dp).fillMaxWidth().height(64.dp)
-            .shadow(8.dp, shape, ambientColor = Color.Black.copy(0.3f), spotColor = Color.Black.copy(0.3f))
-            .clip(shape).background(Color.White).clickable(onClick = onClick).padding(horizontal = 18.dp)
-            .semantics { contentDescription = "Ride insights" },
+        Modifier.height(32.dp).clip(CircleShape).background(Color.White).clickable(onClick = onClick)
+            .padding(horizontal = 12.dp)
+            .semantics(mergeDescendants = true) { contentDescription = "Ride insights" },
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        Icon(painterResource(R.drawable.ic_sparkles), contentDescription = null, tint = Color.Unspecified, modifier = Modifier.size(24.dp))
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text("AI INSIGHTS", style = sb(22, tracking = 0.04f, lineHeight = 1f), color = Sb.Red)
-            Text("A SUMMARY OF THIS RIDE", style = sb(13, tracking = 0.06f, lineHeight = 1f), color = Sb.Red.copy(alpha = 0.7f))
-        }
-        Chevron(color = Sb.Red, size = 12.dp)
+        Icon(painterResource(R.drawable.ic_sparkles), contentDescription = null, tint = Color.Unspecified, modifier = Modifier.size(13.dp))
+        Text("INSIGHTS", style = sb(14, tracking = 0.04f, lineHeight = 1f), color = Sb.Red)
+        Chevron(color = Sb.Red, size = 8.dp)
     }
 }
 
@@ -384,19 +397,64 @@ private fun RouteMarker(fill: Color, stroke: Color) {
     }
 }
 
+private enum class ActionIcon { Play, Share, Download }
+
 @Composable
 private fun ActionButton(
-    title: String, background: Color, foreground: Color, modifier: Modifier,
-    loading: Boolean = false, onClick: () -> Unit,
+    title: String, icon: ActionIcon, primary: Boolean, modifier: Modifier,
+    enabled: Boolean = true, loading: Boolean = false, contentDescription: String? = null, onClick: () -> Unit,
 ) {
-    Box(
-        modifier.height(64.dp).clip(RoundedCornerShape(18.dp)).background(background)
-            .border(1.5.dp, Color(0xFFE4E4E4), RoundedCornerShape(18.dp))
-            .clickable(enabled = !loading, onClick = onClick),
-        contentAlignment = Alignment.Center,
+    val shape = RoundedCornerShape(18.dp)
+    val foreground = if (primary) Color.White else Sb.GreyButtonText
+    val glow = if (primary) Modifier.shadow(10.dp, shape, ambientColor = Sb.Red.copy(0.3f), spotColor = Sb.Red.copy(0.3f)) else Modifier
+    Row(
+        modifier.height(56.dp).then(glow).clip(shape).background(if (primary) Sb.Red else Sb.LightGrey)
+            .clickable(enabled = enabled && !loading, onClick = onClick)
+            .then(if (contentDescription != null) Modifier.semantics(mergeDescendants = true) { this.contentDescription = contentDescription } else Modifier),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (loading) CircularProgressIndicator(Modifier.size(24.dp), color = foreground, strokeWidth = 2.dp)
-        else Text(title, style = sb(22), color = foreground)
+        if (loading) {
+            CircularProgressIndicator(Modifier.size(24.dp), color = foreground, strokeWidth = 2.dp)
+        } else {
+            ActionGlyph(icon, foreground)
+            Spacer(Modifier.width(if (primary) 8.dp else 7.dp))
+            Text(title, style = sb(if (primary) 20 else 18), color = foreground, maxLines = 1)
+        }
+    }
+}
+
+/** 16dp glyphs drawn to match the iOS SF Symbols (play.fill, square.and.arrow.up, arrow.down.to.line). */
+@Composable
+private fun ActionGlyph(icon: ActionIcon, color: Color) {
+    Canvas(Modifier.size(16.dp)) {
+        val w = size.width
+        val h = size.height
+        val stroke = Stroke(width = w * 0.13f, cap = StrokeCap.Round, join = StrokeJoin.Round)
+        when (icon) {
+            ActionIcon.Play -> drawPath(
+                Path().apply { moveTo(w * 0.2f, h * 0.08f); lineTo(w * 0.9f, h * 0.5f); lineTo(w * 0.2f, h * 0.92f); close() },
+                color, style = Fill,
+            )
+            ActionIcon.Share -> {
+                // Arrow up out of an open tray.
+                drawLine(color, Offset(w * 0.5f, h * 0.06f), Offset(w * 0.5f, h * 0.62f), stroke.width, StrokeCap.Round)
+                drawPath(Path().apply { moveTo(w * 0.3f, h * 0.26f); lineTo(w * 0.5f, h * 0.06f); lineTo(w * 0.7f, h * 0.26f) }, color, style = stroke)
+                drawPath(
+                    Path().apply {
+                        moveTo(w * 0.34f, h * 0.4f); lineTo(w * 0.12f, h * 0.4f); lineTo(w * 0.12f, h * 0.94f)
+                        lineTo(w * 0.88f, h * 0.94f); lineTo(w * 0.88f, h * 0.4f); lineTo(w * 0.66f, h * 0.4f)
+                    },
+                    color, style = stroke,
+                )
+            }
+            ActionIcon.Download -> {
+                // Arrow down onto a line.
+                drawLine(color, Offset(w * 0.5f, h * 0.06f), Offset(w * 0.5f, h * 0.7f), stroke.width, StrokeCap.Round)
+                drawPath(Path().apply { moveTo(w * 0.24f, h * 0.45f); lineTo(w * 0.5f, h * 0.71f); lineTo(w * 0.76f, h * 0.45f) }, color, style = stroke)
+                drawLine(color, Offset(w * 0.12f, h * 0.93f), Offset(w * 0.88f, h * 0.93f), stroke.width, StrokeCap.Round)
+            }
+        }
     }
 }
 
@@ -448,7 +506,7 @@ private fun ReplayControls(ui: DailyUiState, viewModel: DailyStatsViewModel) {
     val small = RoundedCornerShape(16.dp)
 
     Column(
-        Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 106.dp),
+        Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 106.dp + navigationBarBottom()),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {

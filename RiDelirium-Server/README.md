@@ -37,10 +37,15 @@ the top of `api/index.php`.
 5. Check: `curl -s -X POST https://your-host/v1/riders -d '{"id":"<uuid>","name":"Test"}'` returns a token.
 
 ## What is stored
-Per rider: random id, sha256 of the token, display name, initials, a "riding until" time and the last
+Per rider: random id, sha256 of the token, display name, initials, what they ride (ski, board or bike), a "riding until" time and the last
 day seen. Plus invite codes, friend pairs, and salted-hash rate-limit counters (deleted after a day).
 No email, phone, device info, IP address, ride data or location history. While a rider is sharing with friends, their latest position (lat/lon) is kept, overwritten on every update, shown only to their friends and cleared shortly after the ride ends. Riders unseen for 30 days are
 deleted, and `DELETE /v1/riders/me` removes everything about a rider immediately.
+
+## Updating an existing database
+Run each file in `api/migrations/` you have not run yet, in order. The newest, `004_sport.sql`, adds the `sport`
+column. Changing it (`PUT /v1/riders/me {"sport"}`) sends a silent push to everyone in the rider's crew so their
+open apps redraw the tag at once.
 
 ## Docker on the QNAP (Nginx Proxy Manager in front)
 

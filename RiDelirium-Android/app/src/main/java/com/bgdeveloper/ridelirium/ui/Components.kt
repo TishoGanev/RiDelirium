@@ -34,19 +34,21 @@ import androidx.compose.ui.unit.dp
 import com.bgdeveloper.ridelirium.ui.theme.Sb
 import com.bgdeveloper.ridelirium.ui.theme.sb
 
-/** The 88 pt headline number with its two-line caption, shared by Stats and Daily stats. */
+/** The headline number with its two-line caption, shared by Stats (88 pt) and Daily stats (56 pt). */
 @Composable
-fun HeroNumber(value: String, captionLines: List<String>, modifier: Modifier = Modifier) {
+fun HeroNumber(value: String, captionLines: List<String>, modifier: Modifier = Modifier, size: Int = 88) {
+    val captionSize = if (size == 88) 20 else 15
+    val captionBottom = if (size == 88) 8.dp else 5.dp
     Row(modifier, verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         Text(
             value,
-            style = sb(88, FontWeight.ExtraBold, tracking = -0.02f, lineHeight = 0.9f, tabular = true),
+            style = sb(size, FontWeight.ExtraBold, tracking = -0.02f, lineHeight = 0.9f, tabular = true),
             color = Color.White,
             maxLines = 1,
         )
-        Column(Modifier.padding(bottom = 8.dp)) {
+        Column(Modifier.padding(bottom = captionBottom)) {
             captionLines.forEach {
-                Text(it, style = sb(20, lineHeight = 1.25f), color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(it, style = sb(captionSize, lineHeight = 1.25f), color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
     }
