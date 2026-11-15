@@ -37,6 +37,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import com.google.firebase.crashlytics.FirebaseCrashlytics
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -87,11 +90,16 @@ class TrackingEngine @Inject constructor(
     private var accumulatedMillis = 0L
     private var fixFilter = FixFilter(ACCURACY_THRESHOLD)
     private val autoControl = MotionAutoControl()
+    /** The ride in progress, kept on disk so a ride survives Android killing the app. */
+    private val activeRide = context.getSharedPreferences("activeRide", Context.MODE_PRIVATE)
+    private val restoring = Mutex()
 
     init {
         // Motion activity decides auto start/stop; settings decide whether it is listened to at all.
         scope.launch { motion.latest.collect { applyMotion() } }
         scope.launch { settings.autoStart.collect { refreshMotionMonitoring() } }
+        // Android killed the app mid-ride (battery saver, low memory): pick the ride up where it was.
+        scope.launch { restoreActiveRide() }
     }
 
     val hasPermission: Boolean
@@ -119,12 +127,73 @@ class TrackingEngine @Inject constructor(
             }
             gSensor.start()
             startTimer()
+            saveActiveRide()
             restartUpdates()
             refreshMotionMonitoring()
-            // Android 12+ refuses to start a foreground service from the background, which is where
-            // auto start fires from. The ride still records while the process lives.
-            runCatching { ContextCompat.startForegroundService(context, Intent(context, TrackingService::class.java)) }
+            startService()
         }
+    }
+
+    /**
+     * Keeps the process in the foreground. Android 12+ refuses this from the background (where auto start fires
+     * from); the ride then records only while the process lives, so the failure is logged rather than hidden.
+     */
+    private fun startService() {
+        runCatching { ContextCompat.startForegroundService(context, Intent(context, TrackingService::class.java)) }
+            .onFailure {
+                android.util.Log.e("Tracking", "foreground service not started", it)
+                runCatching { FirebaseCrashlytics.getInstance().recordException(it) }
+            }
+    }
+
+    /**
+     * Restores a ride that was recording when the process died: same session, its points so far, its distance,
+     * top speed and clock. True when a ride is (now) in progress.
+     */
+    suspend fun restoreActiveRide(): Boolean = restoring.withLock {
+        if (_state.value.isTracking) return true
+        val saved = activeRide.getInt("session", 0)
+        if (saved == 0) return false
+        val points = repository.sessionPoints(saved)
+        val paused = activeRide.getBoolean("paused", false)
+        val now = System.currentTimeMillis()
+        session = saved
+        lastLocation = null
+        classifier.reset()
+        fixFilter = FixFilter(ACCURACY_THRESHOLD, notBeforeMillis = now)
+        autoControl.reset()
+        // The clock kept running while the app was dead, unless the ride was paused.
+        accumulatedMillis = activeRide.getLong("accumulated", 0) +
+            if (paused) 0 else maxOf(0L, now - activeRide.getLong("segmentStart", now))
+        _state.update {
+            it.copy(
+                isTracking = true, isPaused = paused,
+                distanceMeters = activeRide.getFloat("distance", 0f).toDouble(),
+                maxSpeed = maxOf(activeRide.getFloat("maxSpeed", 0f).toDouble(), points.maxOfOrNull { p -> p.speed } ?: 0.0),
+                coordinates = points.map { p -> LatLng(p.lat, p.lon) },
+                elapsedSeconds = accumulatedMillis / 1000, activity = Activity.STILL,
+                gForce = null, maxGForce = points.mapNotNull { p -> p.gForce }.maxOrNull(),
+            )
+        }
+        gSensor.start()
+        if (paused) segmentStart = now else startTimer()
+        saveActiveRide()
+        restartUpdates()
+        refreshMotionMonitoring()
+        startService()
+        true
+    }
+
+    private fun saveActiveRide() {
+        val s = _state.value
+        activeRide.edit()
+            .putInt("session", session)
+            .putLong("accumulated", accumulatedMillis)
+            .putLong("segmentStart", segmentStart)
+            .putBoolean("paused", s.isPaused)
+            .putFloat("distance", s.distanceMeters.toFloat())
+            .putFloat("maxSpeed", s.maxSpeed.toFloat())
+            .apply()
     }
 
     fun pause() {
@@ -133,6 +202,7 @@ class TrackingEngine @Inject constructor(
         accumulatedMillis = currentElapsedMillis()
         timerJob?.cancel()
         _state.update { it.copy(isPaused = true, elapsedSeconds = accumulatedMillis / 1000) }
+        saveActiveRide()
     }
 
     fun resume() {
@@ -143,6 +213,7 @@ class TrackingEngine @Inject constructor(
         gSensor.takePeak()
         _state.update { it.copy(isPaused = false, activity = Activity.STILL) }
         startTimer()
+        saveActiveRide()
     }
 
     fun stop() {
@@ -150,6 +221,7 @@ class TrackingEngine @Inject constructor(
         timerJob?.cancel()
         gSensor.stop()
         sessionMetadata.save(session, fixFilter.metadata)
+        activeRide.edit().clear().apply()
         _state.update { it.copy(isTracking = false, isPaused = false) }
         restartUpdates()
         refreshMotionMonitoring()
@@ -162,10 +234,13 @@ class TrackingEngine @Inject constructor(
         segmentStart = System.currentTimeMillis()
         timerJob?.cancel()
         timerJob = scope.launch {
+            var tick = 0
             while (true) {
                 delay(1000)
                 _state.update { it.copy(elapsedSeconds = currentElapsedMillis() / 1000, gForce = gSensor.latest ?: it.gForce) }
                 applyMotion()
+                // Distance and top speed for a restore after the app is killed; points are already in the database.
+                if (++tick % 10 == 0 && _state.value.isTracking) saveActiveRide()
             }
         }
     }

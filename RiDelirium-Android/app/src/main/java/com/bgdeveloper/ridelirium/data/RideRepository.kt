@@ -3,6 +3,7 @@ package com.bgdeveloper.ridelirium.data
 import com.bgdeveloper.ridelirium.domain.SessionSummary
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
@@ -26,6 +27,9 @@ class RideRepository @Inject constructor(private val dao: TrackPointDao) {
     suspend fun nextSessionId(): Int = dao.maxSession() + 1
 
     suspend fun addPoint(point: TrackPointEntity) = dao.insert(point)
+
+    /** Every point of [session] so far, oldest first. */
+    suspend fun sessionPoints(session: Int): List<TrackPointEntity> = dao.observeSession(session).first()
 
     suspend fun deleteSession(session: Int) = dao.deleteSession(session)
 }

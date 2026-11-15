@@ -4,6 +4,17 @@ import com.bgdeveloper.ridelirium.BuildConfig
 import java.net.URLDecoder
 import java.net.URLEncoder
 
+/** What a rider rides; shown as the glyph on their map tag and crew chip, and shared with their crew. */
+enum class Sport(val key: String, val title: String, val activity: String) {
+    SKI("ski", "SKI", "SKIING"),
+    BOARD("board", "BOARD", "SNOWBOARDING"),
+    BIKE("bike", "BIKE", "BIKING");
+
+    companion object {
+        fun fromKey(key: String?): Sport? = entries.firstOrNull { it.key == key }
+    }
+}
+
 data class Friend(
     val id: String,
     val displayName: String,
@@ -15,7 +26,12 @@ data class Friend(
     val speedKmh: Double? = null,
     /** When that position was sent (epoch ms), from the server's age in seconds. */
     val updatedAtMs: Long? = null,
+    /** What they ride; null for riders the server has no sport for yet. */
+    val sport: Sport? = null,
 ) {
+    /** The sport to draw: a board unless the rider says otherwise. */
+    val rideSport: Sport get() = sport ?: Sport.BOARD
+
     val hasPosition: Boolean get() = latitude != null && longitude != null
 
     /** Stable per rider, from the same hash as the iPhone app. */

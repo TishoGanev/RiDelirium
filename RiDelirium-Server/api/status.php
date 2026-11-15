@@ -1,5 +1,5 @@
 <?php
-// Shows what is in the database: riders, crews (groups of friends), friendships, invites and push devices.
+// Shows what is in the database: riders, crews and their members, and push devices.
 //   docker exec ridersapi php status.php
 // Command line only. Token hashes and push tokens are never printed in full.
 
@@ -58,38 +58,35 @@ table('Riders', array_map(fn ($r) => [
     'push devices' => $r['devices'],
 ], $riders));
 
-$pairs = $pdo->query('SELECT rider_a, rider_b FROM friendships')->fetchAll();
-
-// A crew is everyone connected through friendships, found with a small union-find.
-$parent = [];
-$find = function (string $x) use (&$parent, &$find): string {
-    $parent[$x] ??= $x;
-    return $parent[$x] === $x ? $x : ($parent[$x] = $find($parent[$x]));
-};
-foreach ($pairs as $p) {
-    $parent[$find($p['rider_a'])] = $find($p['rider_b']);
+$members = $pdo->query(
+    'SELECT m.crew_id, m.rider_id, m.joined_at, m.expires_at, (m.expires_at IS NOT NULL AND m.expires_at <= UTC_TIMESTAMP()) AS expired
+       FROM crew_members m ORDER BY m.crew_id, m.joined_at'
+)->fetchAll();
+$byCrew = [];
+foreach ($members as $m) {
+    $byCrew[$m['crew_id']][] = $m;
 }
-$crews = [];
-foreach (array_keys($parent) as $id) {
-    $crews[$find($id)][] = $names[$id] ?? $short($id);
-}
-$crewRows = [];
-foreach (array_values($crews) as $i => $members) {
-    sort($members);
-    $crewRows[] = ['crew' => $i + 1, 'size' => count($members), 'members' => implode(', ', $members)];
-}
-table('Crews (everyone connected by friendships)', $crewRows);
 
-table('Friendships', array_map(fn ($p) => [
-    'rider' => ($names[$p['rider_a']] ?? '?') . ' (' . $short($p['rider_a']) . ')',
-    'friend' => ($names[$p['rider_b']] ?? '?') . ' (' . $short($p['rider_b']) . ')',
-], $pairs));
+table('Crews', array_map(fn ($c) => [
+    'id' => $c['id'],
+    'name' => $c['name'],
+    'code' => $c['code'],
+    'owner' => $names[$c['owner_id']] ?? $short($c['owner_id']),
+    'members' => count(array_filter($byCrew[$c['id']] ?? [], fn ($m) => !$m['expired'])),
+    'created' => $c['created_at'],
+], $pdo->query('SELECT id, name, code, owner_id, created_at FROM crews ORDER BY created_at DESC')->fetchAll()));
 
-$alone = array_filter($riders, fn ($r) => !isset($parent[$r['id']]));
-table('Riders in no crew', array_map(fn ($r) => ['id' => $short($r['id']), 'name' => $r['name']], array_values($alone)));
+table('Crew members', array_map(fn ($m) => [
+    'crew' => $m['crew_id'],
+    'rider' => ($names[$m['rider_id']] ?? '?') . ' (' . $short($m['rider_id']) . ')',
+    'joined' => $m['joined_at'],
+    'until' => $m['expires_at'] ?? 'leaves',
+    'expired' => $m['expired'] ? 'yes' : 'no',
+], $members));
 
-table('Invites', array_map(fn ($i) => ['code' => $i['code'], 'owner' => ($names[$i['rider_id']] ?? '?')],
-    $pdo->query('SELECT code, rider_id FROM invites ORDER BY code')->fetchAll()));
+$inCrew = array_flip(array_column($members, 'rider_id'));
+table('Riders in no crew', array_map(fn ($r) => ['id' => $short($r['id']), 'name' => $r['name']],
+    array_values(array_filter($riders, fn ($r) => !isset($inCrew[$r['id']])))));
 
 table('Push devices', array_map(fn ($d) => [
     'rider' => $names[$d['rider_id']] ?? '?', 'platform' => $d['platform'],

@@ -44,7 +44,7 @@ function apnsJwt(string $keyFile, string $keyId, string $teamId): ?string {
 }
 
 /** Sends one alert to a device; returns false when APNs says the token is dead. */
-function sendApns(string $deviceToken, bool $sandbox, array $payload, string $pushType = 'alert', string $topicSuffix = ''): bool {
+function sendApns(string $deviceToken, bool $sandbox, array $payload, string $pushType = 'alert', string $topicSuffix = '', int $priority = 10): bool {
     $keyFile = cfg('APNS_KEY_FILE');
     $keyId = cfg('APNS_KEY_ID');
     $teamId = cfg('APNS_TEAM_ID');
@@ -69,7 +69,7 @@ function sendApns(string $deviceToken, bool $sandbox, array $payload, string $pu
             "authorization: bearer $jwt",
             'apns-topic: ' . $topic . $topicSuffix,
             "apns-push-type: $pushType",
-            'apns-priority: 10',
+            "apns-priority: $priority",
             'apns-expiration: ' . (time() + 3600),
         ],
     ]);
@@ -177,9 +177,33 @@ function deliver(array $device, array $payload): bool {
     return sendFcm($device['token'], $data);
 }
 
-/** Tells `$riderId` that `$who` joined or left their crew. Failures are logged, never thrown. */
-function notifyRider(string $riderId, string $event, string $who): void {
-    $body = $event === 'join' ? "$who joined your crew" : "$who left your crew";
+/**
+ * Tells everyone who shares a crew with `$riderId` that something changed (their sport or name, a crew's name), with no alert,
+ * so open apps refresh their crew at once. Failures are logged, never thrown.
+ */
+function notifyCrewChanged(string $riderId, string $event): void {
+    try {
+        $friends = array_column(crewMatesOf($riderId), 'id');
+        foreach ($friends as $friendId) {
+            foreach (q('SELECT token, platform, sandbox FROM devices WHERE rider_id = ?', [$friendId])->fetchAll() as $device) {
+                // iOS: a silent background push (priority 5 is required for those); Android: a data-only message.
+                $alive = $device['platform'] === 'ios'
+                    ? sendApns($device['token'], (bool)$device['sandbox'], ['aps' => ['content-available' => 1], 'event' => $event], 'background', '', 5)
+                    : sendFcm($device['token'], ['event' => $event]);
+                if (!$alive) {
+                    q('DELETE FROM devices WHERE token = ?', [$device['token']]);
+                }
+            }
+        }
+    } catch (Throwable $e) {
+        error_log('Ride Together push: ' . $e->getMessage());
+    }
+}
+
+/** Tells `$riderId` that `$who` joined or left `$crew`. Failures are logged, never thrown. */
+function notifyRider(string $riderId, string $event, string $who, string $crew): void {
+    $crew = mb_strtoupper($crew);
+    $body = $event === 'join' ? "$who joined $crew" : "$who left $crew";
     $payload = [
         'aps' => ['alert' => ['title' => 'RiDelirium', 'body' => $body], 'sound' => 'default', 'thread-id' => 'crew'],
         'event' => $event,
@@ -244,7 +268,8 @@ function notifyWait(string $riderId, array $wait, ?int $meters): void {
             }
         }
         $payload = [
-            'aps' => ['alert' => ['title' => 'RiDelirium', 'body' => $body], 'sound' => 'default', 'thread-id' => 'wait', 'interruption-level' => 'time-sensitive'],
+            // The category gives the alert an "OK, waiting" button on the iPhone and the watch.
+            'aps' => ['alert' => ['title' => 'RiDelirium', 'body' => $body], 'sound' => 'default', 'thread-id' => 'wait', 'interruption-level' => 'time-sensitive', 'category' => 'WAIT'],
             'event' => 'wait',
             'waitId' => $wait['id'],
         ];
@@ -276,9 +301,9 @@ function notifyWaitAccepted(string $riderId, string $who): void {
 }
 
 /** A recent riding partner asks `$riderId` to join their crew; tapping the notification opens the app on the code. */
-function notifyInvite(string $riderId, string $who, string $code): void {
+function notifyInvite(string $riderId, string $who, string $code, string $crew): void {
     $payload = [
-        'aps' => ['alert' => ['title' => 'RiDelirium', 'body' => mb_strtoupper($who) . ' INVITES YOU TO RIDE TOGETHER'], 'sound' => 'default', 'thread-id' => 'invite'],
+        'aps' => ['alert' => ['title' => 'RiDelirium', 'body' => mb_strtoupper($who) . ' INVITES YOU TO ' . mb_strtoupper($crew)], 'sound' => 'default', 'thread-id' => 'invite'],
         'event' => 'invite',
         'code' => $code,
     ];

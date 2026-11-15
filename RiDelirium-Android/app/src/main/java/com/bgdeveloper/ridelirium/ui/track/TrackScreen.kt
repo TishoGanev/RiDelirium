@@ -14,6 +14,8 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import com.bgdeveloper.ridelirium.ui.SportGlyph
+import com.bgdeveloper.ridelirium.friends.Sport
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -197,6 +199,43 @@ fun TrackScreen(viewModel: TrackViewModel = hiltViewModel(), friendsViewModel: F
     }
     val selected = selectedId?.let { id -> friendsUi.friends.firstOrNull { it.id == id } }
     val darkStyle = remember(context) { MapStyleOptions.loadRawResourceStyle(context, R.raw.map_dark) }
+    var askBattery by remember { mutableStateOf(false) }
+    // Many phones stop background apps to save battery, ride or not. Ask once, the first time a ride starts.
+    val start = {
+        viewModel.start()
+        val power = context.getSystemService(android.os.PowerManager::class.java)
+        val prefs = context.getSharedPreferences("tracking", android.content.Context.MODE_PRIVATE)
+        if (!power.isIgnoringBatteryOptimizations(context.packageName) && !prefs.getBoolean("batteryAsked", false)) {
+            prefs.edit().putBoolean("batteryAsked", true).apply()
+            askBattery = true
+        }
+    }
+    if (askBattery) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { askBattery = false },
+            title = { Text("Keep recording with the screen off", style = sb(20)) },
+            text = {
+                Text(
+                    "This phone may stop RiDelirium in the background to save battery, which ends the ride early. " +
+                        "Set RiDelirium to \"Unrestricted\" or \"Don't optimise\" in the next screen.",
+                    style = sb(16, FontWeight.SemiBold),
+                )
+            },
+            confirmButton = {
+                androidx.compose.material3.TextButton(onClick = {
+                    askBattery = false
+                    context.startActivity(
+                        android.content.Intent(android.provider.Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+                            .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
+                    )
+                }) { Text("OPEN SETTINGS", style = sb(16), color = Sb.Red) }
+            },
+            dismissButton = {
+                androidx.compose.material3.TextButton(onClick = { askBattery = false }) { Text("NOT NOW", style = sb(16), color = Sb.Charcoal) }
+            },
+        )
+    }
+
 
     // The map's visible area ends at the top of the card, so the camera centres there
     // and the Google logo sits just above the card instead of under the tab bar.
@@ -244,12 +283,18 @@ fun TrackScreen(viewModel: TrackViewModel = hiltViewModel(), friendsViewModel: F
             if (here != null) {
                 val markerState = rememberMarkerState()
                 SideEffect { markerState.position = here }
-                MarkerComposable(state = markerState, anchor = Offset(0.5f, 0.5f)) { UserDot() }
+                // You, drawn like a friend sees you: your sport, your speed, "ME", in red. The tag's tip is your position.
+                val moving = tracking.isTracking && !tracking.isPaused
+                val speedKmh = if (moving) (tracking.currentSpeed * 3.6).toInt() else 0
+                val me = Friend(friendsUi.me?.id ?: "me", "ME", "ME", isRiding = moving, speedKmh = speedKmh.toDouble(), updatedAtMs = now)
+                MarkerComposable(
+                    compactMarkers, speedKmh, friendsUi.mySport, ui.units, now / 20_000,
+                    state = markerState, anchor = if (compactMarkers) Offset(0.5f, 0.5f) else Offset(0.5f, 1f), zIndex = 2f,
+                ) { RiderTag(me, ui.units, compactMarkers, now, sport = friendsUi.mySport, tint = Sb.Red) }
             }
         }
 
         Column(Modifier.fillMaxSize()) {
-            // Weather chip is not ported yet; Ride Together takes the top row for now.
             Row(
                 Modifier.padding(top = statusBarTop() + 14.dp, start = 12.dp, end = 12.dp),
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -296,7 +341,7 @@ fun TrackScreen(viewModel: TrackViewModel = hiltViewModel(), friendsViewModel: F
                     }
                 }
                 Box(Modifier.padding(top = 12.dp).onGloballyPositioned { cardTopPx = it.positionInRoot().y }) {
-                    StatsCard(ui, viewModel, friendsUi.friends, now, friendsViewModel::openSheet)
+                    StatsCard(ui, viewModel, friendsUi.friends, now, friendsViewModel::openSheet, onStart = start)
                 }
             }
         }
@@ -334,32 +379,40 @@ private fun RideTogetherPill(now: Long, viewModel: FriendsViewModel = hiltViewMo
     val offline = friends.size - live.size
     Row(
         Modifier.fillMaxWidth().height(48.dp).chipShadow(CircleShape).clip(CircleShape).background(Color.White)
-            .semantics { contentDescription = if (friends.isEmpty()) "Ride with someone" else "Your crew" }
+            .semantics { contentDescription = ui.selectedCrew?.let { "Crew ${it.name}" } ?: "Ride with someone" }
             .clickable(onClick = viewModel::openSheet).padding(start = 8.dp, end = 14.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (ordered.isEmpty()) {
+        val crew = ui.selectedCrew
+        if (crew == null) {
             Icon(painterResource(R.drawable.ic_people), contentDescription = null, tint = Sb.Red, modifier = Modifier.padding(start = 8.dp).size(20.dp))
             Text("RIDE WITH SOMEONE", style = sb(16, FontWeight.ExtraBold), color = Sb.Charcoal, maxLines = 1, modifier = Modifier.weight(1f))
         } else {
-            Row(horizontalArrangement = Arrangement.spacedBy((-10).dp)) {
-                ordered.take(3).forEach { friend ->
-                    Box(
-                        Modifier.size(32.dp).clip(CircleShape).border(2.dp, Color.White, CircleShape)
-                            .background(if (friend in live) Color(friend.avatarColor) else OfflineGrey),
-                        contentAlignment = Alignment.Center,
-                    ) { SnowboardGlyph(Color.White, Modifier.size(18.dp)) }
+            if (ordered.isNotEmpty()) {
+                Row(horizontalArrangement = Arrangement.spacedBy((-10).dp)) {
+                    ordered.take(3).forEach { friend ->
+                        Box(
+                            Modifier.size(32.dp).clip(CircleShape).border(2.dp, Color.White, CircleShape)
+                                .background(if (friend in live) Color(friend.avatarColor) else OfflineGrey),
+                            contentAlignment = Alignment.Center,
+                        ) { SportGlyph(friend.rideSport, Color.White, Modifier.size(18.dp)) }
+                    }
                 }
+            } else {
+                Icon(painterResource(R.drawable.ic_people), contentDescription = null, tint = Sb.Red, modifier = Modifier.padding(start = 8.dp).size(20.dp))
             }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                val first = ordered[0].displayName.uppercase()
                 Text(
-                    if (ordered.size > 1) "RIDING WITH $first +${ordered.size - 1}" else "RIDING WITH $first",
+                    crew.name.uppercase() + if (ui.crews.size > 1) " · ${ui.crews.size} CREWS" else "",
                     style = sb(16, FontWeight.ExtraBold), color = Sb.Charcoal, maxLines = 1, overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    if (offline > 0) "${live.size} ON THE MAP · $offline OFFLINE" else "${live.size} ON THE MAP",
+                    when {
+                        ordered.isEmpty() -> "JUST YOU · INVITE SOMEONE"
+                        offline > 0 -> "${live.size} ON THE MAP · $offline OFFLINE"
+                        else -> "${live.size} ON THE MAP"
+                    },
                     style = sb(11, tracking = 0.04f), color = Sb.Secondary, maxLines = 1,
                 )
             }
@@ -420,8 +473,9 @@ private fun ShowEveryoneButton(onClick: () -> Unit) {
  * and a rider silent for two minutes goes grey with "last seen". Far out it collapses to a coloured dot with initials.
  */
 @Composable
-private fun RiderTag(friend: Friend, units: Units, compact: Boolean, now: Long) {
-    val color = Color(friend.avatarColor)
+fun RiderTag(friend: Friend, units: Units, compact: Boolean, now: Long, sport: Sport? = null, tint: Color? = null) {
+    // Your own tag is drawn in the brand red, which no friend gets.
+    val color = tint ?: Color(friend.avatarColor)
     val look = lookOf(friend, now)
     if (compact) {
         Box(Modifier.padding(2.dp)) {
@@ -456,7 +510,7 @@ private fun RiderTag(friend: Friend, units: Units, compact: Boolean, now: Long) 
                         .then(if (look == Look.STOPPED) Modifier.border(2.5.dp, color, CircleShape) else Modifier),
                     contentAlignment = Alignment.Center,
                 ) {
-                    SnowboardGlyph(when (look) { Look.RIDING -> Color.White; Look.STOPPED -> color; Look.LAST_SEEN -> Color(0xFFE4E7EB) }, Modifier.size(20.dp))
+                    SportGlyph(sport ?: friend.rideSport, when (look) { Look.RIDING -> Color.White; Look.STOPPED -> color; Look.LAST_SEEN -> Color(0xFFE4E7EB) }, Modifier.size(20.dp))
                 }
             }
             Column(Modifier.widthIn(max = 150.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -469,20 +523,6 @@ private fun RiderTag(friend: Friend, units: Units, compact: Boolean, now: Long) 
         }
         Canvas(Modifier.size(12.dp, 7.dp)) {
             drawPath(Path().apply { moveTo(0f, 0f); lineTo(size.width, 0f); lineTo(size.width / 2, size.height); close() }, fill)
-        }
-    }
-}
-
-/** A snowboard seen from above: a slim rounded board, tilted, with two bindings. */
-@Composable
-private fun SnowboardGlyph(tint: Color, modifier: Modifier = Modifier) {
-    Canvas(modifier) {
-        rotateScope(-45f) {
-            drawRoundRect(tint, Offset(size.width * 0.36f, size.height * 0.04f), androidx.compose.ui.geometry.Size(size.width * 0.28f, size.height * 0.92f),
-                androidx.compose.ui.geometry.CornerRadius(size.width * 0.14f))
-            val hole = Color.Black.copy(alpha = 0.35f)
-            drawRect(hole, Offset(size.width * 0.36f, size.height * 0.28f), androidx.compose.ui.geometry.Size(size.width * 0.28f, size.height * 0.1f), blendMode = androidx.compose.ui.graphics.BlendMode.DstOut)
-            drawRect(hole, Offset(size.width * 0.36f, size.height * 0.62f), androidx.compose.ui.geometry.Size(size.width * 0.28f, size.height * 0.1f), blendMode = androidx.compose.ui.graphics.BlendMode.DstOut)
         }
     }
 }
@@ -503,7 +543,7 @@ private fun MapButton(ui: TrackUiState, onRecenter: () -> Unit, onFollow: () -> 
 }
 
 @Composable
-private fun StatsCard(ui: TrackUiState, viewModel: TrackViewModel, friends: List<Friend>, now: Long, onCrew: () -> Unit) {
+private fun StatsCard(ui: TrackUiState, viewModel: TrackViewModel, friends: List<Friend>, now: Long, onCrew: () -> Unit, onStart: () -> Unit) {
     val s = ui.tracking
     val units = ui.units
     var expanded by remember { mutableStateOf(false) }
@@ -552,7 +592,7 @@ private fun StatsCard(ui: TrackUiState, viewModel: TrackViewModel, friends: List
             }
         }
         Box(Modifier.height(18.dp))
-        Buttons(ui, viewModel)
+        Buttons(ui, viewModel, onStart)
     }
 }
 
@@ -693,7 +733,7 @@ private fun StatColumn(label: String, value: String, modifier: Modifier) {
 }
 
 @Composable
-private fun Buttons(ui: TrackUiState, viewModel: TrackViewModel) {
+private fun Buttons(ui: TrackUiState, viewModel: TrackViewModel, onStart: () -> Unit) {
     val red = RoundedCornerShape(20.dp)
     val glow = Modifier.shadow(10.dp, red, ambientColor = Sb.Red.copy(0.3f), spotColor = Sb.Red.copy(0.3f))
     if (ui.tracking.isTracking) {
@@ -713,7 +753,7 @@ private fun Buttons(ui: TrackUiState, viewModel: TrackViewModel) {
         }
     } else {
         Row(
-            Modifier.fillMaxWidth().height(68.dp).then(glow).clip(red).background(Sb.Red).clickable(onClick = viewModel::start)
+            Modifier.fillMaxWidth().height(68.dp).then(glow).clip(red).background(Sb.Red).clickable(onClick = onStart)
                 .padding(horizontal = 20.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
             verticalAlignment = Alignment.CenterVertically,
@@ -741,16 +781,6 @@ private fun gpsStatus(ui: TrackUiState): String {
 }
 
 // region Components
-
-@Composable
-private fun UserDot() {
-    Box(Modifier.size(50.dp), contentAlignment = Alignment.Center) {
-        Box(Modifier.size(50.dp).clip(CircleShape).background(Color(0x38_2E6EC8)))
-        Box(Modifier.size(22.dp).clip(CircleShape).background(Color.White), contentAlignment = Alignment.Center) {
-            Box(Modifier.size(16.dp).clip(CircleShape).background(Sb.UserDot))
-        }
-    }
-}
 
 @Composable
 private fun PulsingDot() {

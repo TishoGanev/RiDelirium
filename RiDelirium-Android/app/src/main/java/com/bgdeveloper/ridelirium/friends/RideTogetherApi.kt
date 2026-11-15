@@ -18,21 +18,45 @@ class RideTogetherApi {
     suspend fun register(id: String, name: String): String =
         JSONObject(call("POST", "riders", token = null, body = JSONObject().put("id", id).put("name", name))).getString("token")
 
+    /** Tells the server what I ride; my friends see the new tag at once. */
+    suspend fun updateSport(token: String, sport: Sport) {
+        call("PUT", "riders/me", token, JSONObject().put("sport", sport.key))
+    }
+
     suspend fun updateName(token: String, name: String) {
         call("PUT", "riders/me", token, JSONObject().put("name", name))
     }
 
-    suspend fun inviteCode(token: String): String = JSONObject(call("POST", "invites", token)).getString("code")
-
-    suspend fun join(token: String, code: String): Friend = friend(JSONObject(call("POST", "invites/$code/join", token)))
-
-    suspend fun friends(token: String): List<Friend> {
-        val array = JSONArray(call("GET", "friends", token))
-        return List(array.length()) { friend(array.getJSONObject(it)) }
+    /** My crews, each with its active members (me included). */
+    suspend fun crews(token: String): List<Crew> {
+        val array = JSONArray(call("GET", "crews", token))
+        return List(array.length()) { crew(array.getJSONObject(it)) }
     }
 
-    suspend fun removeFriend(token: String, id: String) {
-        call("DELETE", "friends/$id", token)
+    suspend fun createCrew(token: String, name: String): Crew = crew(JSONObject(call("POST", "crews", token, JSONObject().put("name", name))))
+
+    suspend fun renameCrew(token: String, id: String, name: String): Crew =
+        crew(JSONObject(call("PUT", "crews/$id", token, JSONObject().put("name", name))))
+
+    /** What [code] opens, before joining. */
+    suspend fun previewCrew(token: String, code: String): CrewPreview {
+        val o = JSONObject(call("GET", "crews/preview/$code", token))
+        return CrewPreview(code, o.getString("name"), o.getString("ownerName"), o.getInt("memberCount"), o.optBoolean("isMember"))
+    }
+
+    /** Joins the crew behind [code] until [untilEpochSeconds], or until I leave when null. */
+    suspend fun joinCrew(token: String, code: String, untilEpochSeconds: Long?): Crew {
+        val body = JSONObject().put("code", code).apply { untilEpochSeconds?.let { put("until", it) } }
+        return crew(JSONObject(call("POST", "crews/join", token, body)))
+    }
+
+    suspend fun setStay(token: String, id: String, untilEpochSeconds: Long?): Crew {
+        val body = JSONObject().apply { untilEpochSeconds?.let { put("until", it) } }
+        return crew(JSONObject(call("PUT", "crews/$id/membership", token, body)))
+    }
+
+    suspend fun leaveCrew(token: String, id: String) {
+        call("DELETE", "crews/$id/membership", token)
     }
 
     /** Heartbeat with the rider's position; the server keeps only the latest and expires it after 90 seconds. */
@@ -68,9 +92,21 @@ class RideTogetherApi {
         return List(array.length()) { friend(array.getJSONObject(it)) }
     }
 
-    /** Asks a recent rider to join my crew; they get a push with my code. */
-    suspend fun invite(token: String, riderId: String) {
-        call("POST", "riders/$riderId/invite", token, JSONObject())
+    /** Asks a recent rider to join [crewId]; they get a push with its code. */
+    suspend fun invite(token: String, riderId: String, crewId: String) {
+        call("POST", "riders/$riderId/invite", token, JSONObject().put("crewId", crewId))
+    }
+
+    private fun crew(json: JSONObject): Crew {
+        val members = json.getJSONArray("members")
+        return Crew(
+            id = json.getString("id"),
+            name = json.getString("name"),
+            code = json.getString("code"),
+            ownerId = json.getString("ownerId"),
+            myExpiresAtMs = if (json.isNull("myExpiresAt")) null else json.getLong("myExpiresAt") * 1000,
+            members = List(members.length()) { friend(members.getJSONObject(it)) },
+        )
     }
 
     private fun friend(json: JSONObject) = Friend(
@@ -82,6 +118,7 @@ class RideTogetherApi {
         longitude = if (json.has("lon")) json.getDouble("lon") else null,
         speedKmh = if (json.has("speedKmh")) json.getDouble("speedKmh") else null,
         updatedAtMs = if (json.has("ageSeconds")) System.currentTimeMillis() - json.getLong("ageSeconds") * 1000 else null,
+        sport = Sport.fromKey(json.optString("sport")),
     )
 
     private suspend fun call(method: String, path: String, token: String?, body: JSONObject? = null): String =

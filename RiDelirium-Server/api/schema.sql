@@ -13,6 +13,7 @@ CREATE TABLE riders (
     token_hash   CHAR(64)     NOT NULL UNIQUE,        -- sha256 of the access token; the token itself is not stored
     name         VARCHAR(30)  NOT NULL,
     initials     VARCHAR(2)   NOT NULL,
+    sport        ENUM('ski','board','bike') NOT NULL DEFAULT 'board',  -- what they ride; shown on their map tag
     riding_until DATETIME     NULL,                   -- UTC; set by the app's heartbeat, expires by itself
     lat          DECIMAL(8,5) NULL,                   -- latest position while riding; NULL otherwise
     lon          DECIMAL(8,5) NULL,
@@ -22,21 +23,27 @@ CREATE TABLE riders (
     KEY (riding_until)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE TABLE invites (
-    code     CHAR(8)  NOT NULL PRIMARY KEY,
-    rider_id CHAR(36) NOT NULL UNIQUE,                -- one code per rider
-    FOREIGN KEY (rider_id) REFERENCES riders (id) ON DELETE CASCADE
+-- A crew: a group of riders who see each other on the map. Anyone with its code can join.
+CREATE TABLE crews (
+    id         CHAR(16)    NOT NULL PRIMARY KEY,        -- random hex
+    name       VARCHAR(30) NOT NULL,
+    code       CHAR(8)     NOT NULL UNIQUE,             -- what the QR code and invite link carry
+    owner_id   CHAR(36)    NOT NULL,                    -- passes to the oldest member when the owner leaves
+    created_at DATETIME    NOT NULL                     -- UTC
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- One row per pair; rider_a < rider_b so a pair is never stored twice.
-CREATE TABLE friendships (
-    rider_a CHAR(36) NOT NULL,
-    rider_b CHAR(36) NOT NULL,
-    PRIMARY KEY (rider_a, rider_b),
-    KEY (rider_b),
-    FOREIGN KEY (rider_a) REFERENCES riders (id) ON DELETE CASCADE,
-    FOREIGN KEY (rider_b) REFERENCES riders (id) ON DELETE CASCADE,
-    CHECK (rider_a < rider_b)
+-- Who is in which crew, and until when. NULL expires_at means "until I leave". Riders see each other only while
+-- they share at least one crew where neither membership has expired.
+CREATE TABLE crew_members (
+    crew_id    CHAR(16) NOT NULL,
+    rider_id   CHAR(36) NOT NULL,
+    joined_at  DATETIME NOT NULL,                       -- UTC
+    expires_at DATETIME NULL,                           -- UTC
+    PRIMARY KEY (crew_id, rider_id),
+    KEY (rider_id),
+    KEY (expires_at),
+    FOREIGN KEY (crew_id) REFERENCES crews (id) ON DELETE CASCADE,
+    FOREIGN KEY (rider_id) REFERENCES riders (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Where to send "a friend joined / left your crew". One row per phone; the token is Apple's or Google's

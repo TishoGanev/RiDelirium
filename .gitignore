@@ -44,3 +44,7 @@ Secrets.xcconfig
 # Nested repo (own git history)
 RiDelirium-iOS/
 _claude_work/
+IOS_ANDROID_DIFF.txt
+Snowoboarders-old/
+RiDelirium-Server/api/migrations/
+RiDelirium-Server/README.md

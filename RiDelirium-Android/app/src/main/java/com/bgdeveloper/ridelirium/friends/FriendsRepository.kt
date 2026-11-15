@@ -27,32 +27,44 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import org.json.JSONArray
-import org.json.JSONObject
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 
 data class FriendsState(
-    /** You, as friends see you. Null until the rider has entered a name. */
+    /** You, as crew-mates see you. Null until the rider has entered a name. */
     val me: Friend? = null,
-    val friends: List<Friend> = emptyList(),
-    val invite: Invite? = null,
+    /** Every crew you are in, most recently joined first. */
+    val crews: List<Crew> = emptyList(),
+    /** The crew the map shows; you switch it in Ride Together. */
+    val selectedCrewId: String? = null,
     val isJoining: Boolean = false,
     val joinError: String? = null,
-    /** The rider who just joined, shown as a confirmation in the sheet. */
-    val justJoined: Friend? = null,
-    /** A scanned link that arrived before the rider entered a name; joined right after. */
+    /** What a scanned or typed code opens, waiting for the rider to pick how long to stay. */
+    val joinPreview: CrewPreview? = null,
+    /** The crew just joined, shown as a confirmation in the sheet. */
+    val justJoined: Crew? = null,
+    /** A scanned link that arrived before the rider entered a name; previewed right after. */
     val pendingInvite: String? = null,
-    /** People you rode with lately who aren't in your crew; one tap sends them your code. */
+    /** People you rode with lately who are in none of your crews; one tap sends them the selected crew's code. */
     val recentRiders: List<Friend> = emptyList(),
     /** Recent riders already asked, until they join. */
     val invitedIds: Set<String> = emptySet(),
-    /** "NAME JUST JOINED", shown for four seconds on the share screen. */
+    /** "NAME JUST JOINED", shown for four seconds on the invite screen. */
     val joinBanner: String? = null,
+    /** What this rider chose in Settings. */
+    val mySport: Sport = Sport.BOARD,
     /** No server configured, or the last call to it failed; the sheet then says "WE ARE OFFLINE". */
     val offline: Boolean = false,
 ) {
+    val selectedCrew: Crew? get() = crews.firstOrNull { it.id == selectedCrewId } ?: crews.firstOrNull()
+
+    /** Members of the selected crew, without you: what the map, the crew pill and WAIT work with. */
+    val friends: List<Friend> get() = selectedCrew?.others(me?.id).orEmpty()
+
+    /** The selected crew's code, for the invite card. */
+    val invite: Invite? get() = selectedCrew?.invite
+
     /** Friends who are riding right now; anyone who stopped sharing or left drops out. */
     val ridingNow: List<Friend> get() = friends.filter { it.isRiding }
 
@@ -61,9 +73,9 @@ data class FriendsState(
 }
 
 /**
- * Ride Together: who you ride with. There are no accounts. The name lives on this phone and on the server
- * (with a random id and your friend links). Your position is shared with your friends only while you ride with
- * them; the server keeps just the latest one. Lives in a singleton so sharing keeps going while a ride is recorded.
+ * Ride Together: the crews you ride with. There are no accounts. The name lives on this phone and on the server
+ * (with a random id and your crew memberships). Your position is shared only with riders in a crew with you, and
+ * the server keeps just the latest one. Lives in a singleton so sharing keeps going while a ride is recorded.
  */
 @Singleton
 class FriendsRepository @Inject constructor(
@@ -76,7 +88,7 @@ class FriendsRepository @Inject constructor(
     private val registration = Mutex()
 
     private val _state = MutableStateFlow(FriendsState(offline = !api.isConfigured))
-    private var hasLoadedFriends = false
+    private var hasLoadedCrews = false
     val state: StateFlow<FriendsState> = _state.asStateFlow()
 
     /** Any screen can ask for the Ride Together sheet; the Track screen presents it. */
@@ -114,15 +126,16 @@ class FriendsRepository @Inject constructor(
     suspend fun loadRecentRiders() {
         if (_state.value.me == null) return
         val riders = runCatching { authorized { api.recentRiders(it) } }.getOrNull() ?: return
-        _state.update { s -> s.copy(recentRiders = riders.filter { r -> s.friends.none { it.id == r.id } }) }
+        _state.update { s -> s.copy(recentRiders = riders.filter { r -> s.crews.none { c -> c.members.any { it.id == r.id } } }) }
     }
 
-    /** Sends your code to a recent rider; the chip says INVITED until they join. */
-    fun invite(rider: Friend) {
+    /** Sends [crewId]'s code to a recent rider; the chip says INVITED until they join. */
+    fun invite(rider: Friend, crewId: String) {
+        val crew = _state.value.crews.firstOrNull { it.id == crewId } ?: return
         if (rider.id in _state.value.invitedIds) return
         _state.update { it.copy(invitedIds = it.invitedIds + rider.id) }
         scope.launch {
-            runCatching { authorized { api.invite(it, rider.id) } }
+            runCatching { authorized { api.invite(it, rider.id, crew.id) } }
                 .onFailure { _state.update { s -> s.copy(invitedIds = s.invitedIds - rider.id) } }
         }
     }
@@ -138,12 +151,21 @@ class FriendsRepository @Inject constructor(
     val name: String? get() = prefs.getString("name", null)
 
     init {
-        name?.let { _state.update { s -> s.copy(me = Friend(identity, it, initialsOf(it))) } }
-        // Show today's crew straight away; the server confirms who is riding a moment later (or never, offline).
-        _state.update { it.copy(friends = merged(readServerCrew(), localCrew())) }
+        _state.update { it.copy(mySport = Sport.fromKey(prefs.getString("sport", null)) ?: Sport.BOARD) }
+        name?.let { _state.update { s -> s.copy(me = Friend(identity, it, initialsOf(it), sport = s.mySport)) } }
+        _state.update { it.copy(selectedCrewId = prefs.getString("selectedCrew", null)) }
         scope.launch { refresh() }
         scope.launch { watchSharing() }
         scope.launch { registerPush() }
+        // The server may not know what this rider rides yet (or has the default); tell it, quietly.
+        scope.launch { if (name != null) runCatching { authorized { api.updateSport(it, _state.value.mySport) } } }
+    }
+
+    /** Saves what the rider rides and tells the server, which tells their crew at once. */
+    fun setSport(sport: Sport) {
+        prefs.edit().putString("sport", sport.key).apply()
+        _state.update { it.copy(mySport = sport, me = it.me?.copy(sport = sport)) }
+        scope.launch { if (name != null) runCatching { authorized { api.updateSport(it, sport) } } }
     }
 
     // region Push
@@ -185,24 +207,26 @@ class FriendsRepository @Inject constructor(
 
     fun showSheet(show: Boolean) {
         _showSheet.value = show
-        if (!show) _state.update { it.copy(justJoined = null, joinError = null) }
+        if (!show) _state.update { it.copy(justJoined = null, joinError = null, joinPreview = null) }
     }
 
     fun clearError() = _state.update { it.copy(joinError = null) }
 
-    /** Saves the rider's name and presents them to friends under it. */
+    /** Saves the rider's name and presents them to crew-mates under it. */
     fun setName(raw: String) {
         val name = raw.trim().take(30)
         if (name.isEmpty()) return
         prefs.edit().putString("name", name).apply()
-        _state.update { it.copy(me = Friend(identity, name, initialsOf(name)), invite = null) }
+        _state.update { it.copy(me = Friend(identity, name, initialsOf(name), sport = it.mySport)) }
         scope.launch {
             runCatching { authorized { api.updateName(it, name) } }
+            runCatching { authorized { api.updateSport(it, _state.value.mySport) } }
             registerPush()
+            refresh()
             val pending = _state.value.pendingInvite
             if (pending != null) {
                 _state.update { it.copy(pendingInvite = null) }
-                join(pending)
+                preview(pending)
             }
         }
     }
@@ -213,51 +237,47 @@ class FriendsRepository @Inject constructor(
         if (_state.value.me == null) {
             _state.update { it.copy(pendingInvite = text) }
         } else {
-            scope.launch { join(text) }
+            scope.launch { preview(text) }
         }
     }
 
-    suspend fun loadInvite() {
-        val me = _state.value.me ?: return
-        if (_state.value.invite != null) return
-        val code = runCatching { authorized { api.inviteCode(it) } }.getOrNull()
-        if (code == null) {
-            _state.update { it.copy(offline = true) }
-            return fail(NO_SIGNAL)
-        }
-        _state.update { it.copy(invite = Invite(code, me), joinError = null, offline = false) }
+    /** Makes [id] the crew the map shows. */
+    fun selectCrew(id: String) {
+        prefs.edit().putString("selectedCrew", id).apply()
+        _state.update { it.copy(selectedCrewId = id) }
     }
 
     /**
-     * The server is the truth while it is reachable: a friend who left the crew is gone from its list, so they
-     * are dropped here too, unless their join is still on its way to the server. Offline, we keep who we have.
+     * The server is the truth: a crew you left or whose time ran out is gone from its list, and so is anyone who
+     * left a crew. Offline, we keep what we have.
      */
     suspend fun refresh() {
-        syncPendingJoins()
-        val known = runCatching { authorized { api.friends(it) } }.getOrNull()
-        if (known == null) {
-            _state.update { it.copy(friends = merged(it.friends, localCrew()), offline = api.isConfigured) }
+        if (_state.value.me == null) return
+        val crews = runCatching { authorized { api.crews(it) } }.getOrNull()
+        if (crews == null) {
+            _state.update { it.copy(offline = api.isConfigured) }
             return
         }
-        writeServerCrew(known)
-        pruneLocalCrew(serverIds = known.map { it.id }.toSet(), keeping = pendingJoins().values.toSet())
-        // Anyone the server doesn't list yet can't be confirmed as riding.
-        val unconfirmed = localCrew().map { it.copy(isRiding = false, latitude = null, longitude = null) }
-        val before = _state.value.friends.map { it.id }.toSet()
+        val before = _state.value.selectedCrew?.let { crew -> crew.id to crew.members.map { it.id }.toSet() }
         _state.update { s ->
-            val crew = merged(known, unconfirmed)
+            val selected = s.selectedCrewId?.takeIf { id -> crews.any { it.id == id } } ?: crews.firstOrNull()?.id
+            val inCrews = crews.flatMap { c -> c.members.map { it.id } }.toSet()
             s.copy(
-                friends = crew,
-                recentRiders = s.recentRiders.filter { r -> crew.none { it.id == r.id } },
-                invitedIds = s.invitedIds - crew.map { it.id }.toSet(),
+                crews = crews,
+                selectedCrewId = selected,
+                recentRiders = s.recentRiders.filter { it.id !in inCrews },
+                invitedIds = s.invitedIds - inCrews,
                 offline = false,
             )
         }
-        // Someone new in the crew: say who, once the first load is past (not for the whole crew at launch).
+        // Someone new in the selected crew: say who, once the first load is past (not for the whole crew at launch).
         val state = _state.value
-        val joined = state.friends.firstOrNull { it.id !in before }
-        if (hasLoadedFriends && joined != null && state.justJoined == null && !state.isJoining) showJoinBanner(joined.displayName)
-        hasLoadedFriends = true
+        val crew = state.selectedCrew
+        val joined = if (before != null && crew?.id == before.first) crew.members.firstOrNull { it.id !in before.second } else null
+        if (hasLoadedCrews && joined != null && joined.id != state.me?.id && state.justJoined == null && !state.isJoining) {
+            showJoinBanner(joined.displayName)
+        }
+        hasLoadedCrews = true
     }
 
     private fun showJoinBanner(name: String) {
@@ -270,7 +290,7 @@ class FriendsRepository @Inject constructor(
 
     private var quickRefresh: Job? = null
 
-    /** Checks the crew every 2 seconds for about 12 seconds, instead of waiting for the slow poll. */
+    /** Checks the crews every 2 seconds for about 12 seconds, instead of waiting for the slow poll. */
     fun refreshQuickly() {
         quickRefresh?.cancel()
         quickRefresh = scope.launch {
@@ -281,46 +301,93 @@ class FriendsRepository @Inject constructor(
         }
     }
 
-    /** Joins from a scanned QR payload, an opened invite link or a typed code. */
-    suspend fun join(text: String) {
-        if (_state.value.isJoining) return
-        val (code, inviter) = InviteLink.parse(text) ?: return fail(INVALID_CODE)
-        val me = _state.value.me ?: return fail(NO_NAME)
-        if (code == _state.value.invite?.code || inviter?.id == me.id) return fail(OWN_CODE)
+    /** Creates a crew and selects it; the sheet then shows its invite card. */
+    suspend fun createCrew(name: String): Crew? {
+        val clean = name.trim().take(30).ifEmpty { return null }
+        return try {
+            authorized { api.createCrew(it, clean) }.also { crew ->
+                _state.update { it.copy(crews = listOf(crew) + it.crews, joinError = null, offline = false) }
+                selectCrew(crew.id)
+            }
+        } catch (e: ApiException) {
+            fail(if (e.status == 409) TOO_MANY_CREWS else NO_SIGNAL); null
+        } catch (e: Exception) {
+            fail(NO_SIGNAL); null
+        }
+    }
 
+    suspend fun renameCrew(id: String, name: String) {
+        val clean = name.trim().take(30).ifEmpty { return }
+        runCatching { authorized { api.renameCrew(it, id, clean) } }
+            .onSuccess { crew -> _state.update { s -> s.copy(crews = s.crews.map { if (it.id == crew.id) crew else it }) } }
+            .onFailure { fail(NO_SIGNAL) }
+    }
+
+    /** Step one of joining: what a scanned QR payload, an opened invite link or a typed code opens. */
+    suspend fun preview(text: String) {
+        if (_state.value.isJoining) return
+        val (code, _) = InviteLink.parse(text) ?: return fail(INVALID_CODE)
+        if (_state.value.me == null) return fail(NO_NAME)
+        if (_state.value.crews.any { it.code == code && it.ownerId == _state.value.me?.id }) return fail(OWN_CODE)
         _state.update { it.copy(isJoining = true, joinError = null) }
         try {
-            val friend = authorized { api.join(it, code) }
-            save(friend)
-            // Joining a code brings the owner's whole crew; look again every couple of seconds for a while so
-            // each rider shows on the map as soon as their phone sends a position.
-            refresh()
-            refreshQuickly()
+            val preview = authorized { api.previewCrew(it, code) }
+            _state.update { it.copy(joinPreview = preview) }
         } catch (e: ApiException) {
             fail(if (e.status == 404) INVALID_CODE else NO_SIGNAL)
         } catch (e: Exception) {
-            // The QR already says who invited us, so we can still ride with them; the server learns about it
-            // when there is signal again.
-            if (inviter != null) {
-                save(inviter)
-                queueJoin(code, inviter.id)
-            } else {
-                fail(NO_SIGNAL)
-            }
+            fail(NO_SIGNAL)
         } finally {
             _state.update { it.copy(isJoining = false) }
         }
     }
 
-    /** Removes everyone from your friends on this phone and the server. They aren't notified. */
-    fun leave() {
-        val ids = _state.value.friends.map { it.id }
-        prefs.edit().remove("crew").remove("serverCrew").remove("pendingJoinIds").apply()
-        // No invite either: with nobody to wait for, stop sharing until a new one is shown.
-        _state.update { it.copy(friends = emptyList(), justJoined = null, invite = null) }
+    fun cancelJoin() = _state.update { it.copy(joinPreview = null, joinError = null) }
+
+    /** Step two: join the previewed crew for [stay]. */
+    suspend fun confirmJoin(stay: Stay) {
+        val preview = _state.value.joinPreview ?: return
+        if (_state.value.isJoining) return
+        _state.update { it.copy(isJoining = true, joinError = null) }
+        try {
+            val crew = authorized { api.joinCrew(it, preview.code, stay.untilEpochSeconds()) }
+            _state.update { s ->
+                s.copy(crews = listOf(crew) + s.crews.filter { it.id != crew.id }, joinPreview = null, justJoined = crew, offline = false)
+            }
+            selectCrew(crew.id)
+            refreshQuickly()
+        } catch (e: ApiException) {
+            fail(
+                when (e.status) {
+                    404 -> INVALID_CODE
+                    409 -> CREW_FULL
+                    else -> NO_SIGNAL
+                },
+            )
+        } catch (e: Exception) {
+            fail(NO_SIGNAL)
+        } finally {
+            _state.update { it.copy(isJoining = false) }
+        }
+    }
+
+    /** Changes how long you stay in [crewId]. */
+    suspend fun setStay(crewId: String, stay: Stay) {
+        runCatching { authorized { api.setStay(it, crewId, stay.untilEpochSeconds()) } }
+            .onSuccess { crew -> _state.update { s -> s.copy(crews = s.crews.map { if (it.id == crew.id) crew else it }) } }
+            .onFailure { fail(NO_SIGNAL) }
+    }
+
+    /** Leaves one crew; the others in it are told. */
+    fun leave(crewId: String) {
+        _state.update { s ->
+            val crews = s.crews.filter { it.id != crewId }
+            s.copy(crews = crews, selectedCrewId = if (s.selectedCrewId == crewId) crews.firstOrNull()?.id else s.selectedCrewId)
+        }
         scope.launch {
-            ids.forEach { id -> runCatching { authorized { api.removeFriend(it, id) } } }
-            // Everyone who just left the crew is now a recent rider.
+            runCatching { authorized { api.leaveCrew(it, crewId) } }
+            refresh()
+            // Everyone in that crew is now a recent rider.
             loadRecentRiders()
         }
     }
@@ -336,9 +403,9 @@ class FriendsRepository @Inject constructor(
         val process = ProcessLifecycleOwner.get().lifecycle
         val foreground = isStarted(process).distinctUntilChanged()
         val tracking = engine.state.map { it.isTracking }.distinctUntilChanged()
-        // Showing an invite counts as being in a crew: the rider is waiting for people to join, so their position
+        // Being in any crew counts, even alone in it: the rider is waiting for people to join, so their position
         // is already on the server when the first one does.
-        val inCrew = _state.map { it.friends.isNotEmpty() || it.invite != null }.distinctUntilChanged()
+        val inCrew = _state.map { it.crews.isNotEmpty() }.distinctUntilChanged()
 
         var wasSharing = false
         combine(tracking, inCrew, foreground) { t, crew, fg -> (t || (crew && fg)) to fg }
@@ -357,7 +424,7 @@ class FriendsRepository @Inject constructor(
                         wasSharing = false
                         runCatching { authorized { api.setRiding(it, false) } }
                     }
-                    // Not sharing yet, but someone may join our code, so look now and then while the app is open.
+                    // Not sharing yet, but someone may join a crew of ours, so look now and then while the app is open.
                     while (fg) {
                         refresh()
                         delay(IDLE_REFRESH_MS)
@@ -376,108 +443,6 @@ class FriendsRepository @Inject constructor(
         lifecycle.addObserver(observer)
         awaitClose { lifecycle.removeObserver(observer) }
     }
-
-    // endregion
-
-    // region Storage
-
-    private fun save(friend: Friend) {
-        val crew = localCrew().filter { it.id != friend.id } + friend.copy(isRiding = false, latitude = null, longitude = null)
-        writeCrew(crew, added = readAdded() + (friend.id to System.currentTimeMillis()))
-        _state.update { it.copy(friends = merged(it.friends, crew), justJoined = friend, joinError = null) }
-    }
-
-    /** Riders joined without signal today, kept until they show up on the server. */
-    private fun localCrew(): List<Friend> {
-        val stored = readCrew() ?: return emptyList()
-        val array = stored.optJSONArray("riders") ?: return emptyList()
-        return List(array.length()) {
-            val o = array.getJSONObject(it)
-            Friend(o.getString("id"), o.getString("name"), o.getString("initials"))
-        }
-    }
-
-    private fun readCrew(): JSONObject? {
-        val stored = prefs.getString("crew", null)?.let { runCatching { JSONObject(it) }.getOrNull() } ?: return null
-        return stored.takeIf { it.optString("day") == today() }
-    }
-
-    /** The riders the server last listed, so a restart without signal still shows the whole crew, not just who we joined. */
-    private fun readServerCrew(): List<Friend> {
-        val stored = prefs.getString("serverCrew", null)?.let { runCatching { JSONObject(it) }.getOrNull() } ?: return emptyList()
-        if (stored.optString("day") != today()) return emptyList()
-        val array = stored.optJSONArray("riders") ?: return emptyList()
-        return List(array.length()) {
-            val o = array.getJSONObject(it)
-            Friend(o.getString("id"), o.getString("name"), o.getString("initials"))
-        }
-    }
-
-    private fun writeServerCrew(crew: List<Friend>) {
-        val riders = JSONArray().also { array ->
-            crew.forEach { array.put(JSONObject().put("id", it.id).put("name", it.displayName).put("initials", it.initials)) }
-        }
-        prefs.edit().putString("serverCrew", JSONObject().put("day", today()).put("riders", riders).toString()).apply()
-    }
-
-    private fun readAdded(): Map<String, Long> {
-        val added = readCrew()?.optJSONObject("added") ?: return emptyMap()
-        return added.keys().asSequence().associateWith { added.getLong(it) }
-    }
-
-    private fun writeCrew(crew: List<Friend>, added: Map<String, Long>) {
-        val riders = JSONArray().also { array ->
-            crew.forEach { array.put(JSONObject().put("id", it.id).put("name", it.displayName).put("initials", it.initials)) }
-        }
-        val times = JSONObject().also { o -> added.filterKeys { id -> crew.any { it.id == id } }.forEach { (id, t) -> o.put(id, t) } }
-        prefs.edit().putString("crew", JSONObject().put("day", today()).put("riders", riders).put("added", times).toString()).apply()
-    }
-
-    /** Forgets riders the server no longer lists, unless they were added a moment ago or their join is still queued. */
-    private fun pruneLocalCrew(serverIds: Set<String>, keeping: Set<String>) {
-        val added = readAdded()
-        val now = System.currentTimeMillis()
-        val crew = localCrew().filter { rider ->
-            rider.id in serverIds || rider.id in keeping || now - (added[rider.id] ?: 0L) <= GRACE_MS
-        }
-        writeCrew(crew, added)
-    }
-
-    /** Joins waiting for signal: invite code -> id of the rider it belongs to. */
-    private fun pendingJoins(): Map<String, String> {
-        val json = prefs.getString("pendingJoinIds", null)?.let { runCatching { JSONObject(it) }.getOrNull() } ?: return emptyMap()
-        return json.keys().asSequence().associateWith { json.getString(it) }
-    }
-
-    private fun writePending(joins: Map<String, String>) {
-        prefs.edit().putString("pendingJoinIds", JSONObject(joins).toString()).apply()
-    }
-
-    private fun queueJoin(code: String, riderId: String) {
-        if (!api.isConfigured) return
-        writePending(pendingJoins() + (code to riderId))
-    }
-
-    private suspend fun syncPendingJoins() {
-        val joins = pendingJoins()
-        if (joins.isEmpty() || _state.value.me == null) return
-        val left = mutableMapOf<String, String>()
-        for ((code, riderId) in joins) {
-            try {
-                authorized { api.join(it, code) }
-            } catch (e: ApiException) {
-                // An unknown code will never work; anything else is worth another try.
-                if (e.status != 404) left[code] = riderId
-            } catch (e: Exception) {
-                left[code] = riderId
-            }
-        }
-        writePending(left)
-    }
-
-    private fun merged(vararg lists: List<Friend>): List<Friend> = lists.flatMap { it }.distinctBy { it.id }
-
-    private fun today() = java.time.LocalDate.now().toString()
 
     // endregion
 
@@ -512,10 +477,11 @@ class FriendsRepository @Inject constructor(
     private companion object {
         const val SHARING_MS = 6_000L
         const val IDLE_REFRESH_MS = 60_000L
-        const val GRACE_MS = 10 * 60_000L
         const val INVALID_CODE = "That code doesn't look right. Codes are 8 letters and numbers."
         const val OWN_CODE = "That's your own code. Let a friend scan it instead."
         const val NO_NAME = "Add your name first to ride together."
         const val NO_SIGNAL = "We are offline. Check your signal and try again."
+        const val TOO_MANY_CREWS = "You are in 10 crews already. Leave one first."
+        const val CREW_FULL = "That crew is full, or you are in 10 crews already."
     }
 }

@@ -1,5 +1,11 @@
 package com.bgdeveloper.ridelirium.ui.settings
 
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
+import com.bgdeveloper.ridelirium.friends.Friend
+import com.bgdeveloper.ridelirium.friends.Sport
+import com.bgdeveloper.ridelirium.domain.Units
+import com.bgdeveloper.ridelirium.ui.track.RiderTag
 import android.Manifest
 import android.content.Intent
 import android.os.Build
@@ -67,6 +73,8 @@ fun SettingsScreen(onOpenAbout: () -> Unit, viewModel: SettingsViewModel = hiltV
     val autoStart by viewModel.autoStart.collectAsStateWithLifecycle()
     val autoStop by viewModel.autoStop.collectAsStateWithLifecycle()
     val stopMinutes by viewModel.stopMinutes.collectAsStateWithLifecycle()
+    val sport by viewModel.sport.collectAsStateWithLifecycle()
+    val me by viewModel.me.collectAsStateWithLifecycle()
     var editing by remember { mutableStateOf(false) }
 
     // Re-read on every return from system settings, so the status is never stale.
@@ -101,6 +109,8 @@ fun SettingsScreen(onOpenAbout: () -> Unit, viewModel: SettingsViewModel = hiltV
             Text("SETTINGS", style = sb(40, FontWeight.ExtraBold, lineHeight = 1f), color = Color.White)
         }
 
+        // The rows scroll under the fixed header; the bottom padding clears the floating tab bar.
+        Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(bottom = 110.dp)) {
         SettingsRow {
             Box(Modifier.size(40.dp).clip(CircleShape).background(Sb.Charcoal), contentAlignment = Alignment.Center) {
                 Text(initials, style = sb(14), color = Color.White)
@@ -118,6 +128,7 @@ fun SettingsScreen(onOpenAbout: () -> Unit, viewModel: SettingsViewModel = hiltV
             Text("UNITS", style = sb(18), color = Sb.Charcoal, modifier = Modifier.weight(1f))
             SegmentedControl(listOf("METRIC" to true, "IMPERIAL" to false), metric, viewModel::setMetric)
         }
+        SportRow(sport, me, metric, viewModel::setSport)
         // Start and stop from motion activity. Recorded points are never deleted by it.
         SettingsRow {
             Text("START WHEN DRIVING", style = sb(18), color = Sb.Charcoal, modifier = Modifier.weight(1f))
@@ -159,6 +170,7 @@ fun SettingsScreen(onOpenAbout: () -> Unit, viewModel: SettingsViewModel = hiltV
             Text("ABOUT RIDELIRIUM", style = sb(18), color = Sb.Charcoal, modifier = Modifier.weight(1f))
             Chevron(Modifier.padding(end = 4.dp), size = 10.dp)
         }
+        }
     }
 
     if (editing) {
@@ -172,6 +184,32 @@ private fun StepButton(label: String, onClick: () -> Unit) {
         Modifier.size(40.dp).clip(CircleShape).background(Sb.LightGrey).clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) { Text(label, style = sb(22), color = Sb.GreyButtonText) }
+}
+
+/** What the rider rides, and a preview of the tag friends see for it. */
+@Composable
+private fun SportRow(sport: Sport, me: Friend?, metric: Boolean, onSport: (Sport) -> Unit) {
+    val now = System.currentTimeMillis()
+    val preview = (me ?: Friend("preview", "You", "ME")).copy(isRiding = true, speedKmh = 24.0, updatedAtMs = now, sport = sport)
+    Column {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("I RIDE", style = sb(18), color = Sb.Charcoal, modifier = Modifier.weight(1f))
+                SegmentedControl(Sport.entries.map { it.title to it }, sport, onSport)
+            }
+            Row(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Sb.MapBackground).padding(horizontal = 14.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Text("How friends see you", style = sb(13, FontWeight.SemiBold), color = Color.White.copy(alpha = 0.7f), modifier = Modifier.weight(1f))
+                Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    RiderTag(preview, Units(metric), compact = false, now = now, sport = sport)
+                    Text(sport.activity, style = sb(11, tracking = 0.04f), color = Color.White.copy(alpha = 0.7f))
+                }
+            }
+        }
+        Box(Modifier.fillMaxWidth().height(1.dp).background(Sb.Divider))
+    }
 }
 
 @Composable
