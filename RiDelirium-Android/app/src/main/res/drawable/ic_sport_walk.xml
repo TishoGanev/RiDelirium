@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The iOS SportGlyph (walk), same 24x24 artwork; tinted where it is used. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
+    <path android:fillColor="#FF000000" android:pathData="M10.9,3.8a2.3,2.3 0 1,0 4.6,0a2.3,2.3 0 1,0 -4.6,0"/>
+    <path android:strokeColor="#FF000000" android:strokeWidth="2.4" android:strokeLineCap="round" android:strokeLineJoin="round" android:pathData="M12.6 7.6 11.2 13.6"/>
+    <path android:strokeColor="#FF000000" android:strokeWidth="2.4" android:strokeLineCap="round" android:strokeLineJoin="round" android:pathData="M12.4 8.4 9 11.2 8.4 13.8M12.4 8.4l2.4 3.4 2.8.8"/>
+    <path android:strokeColor="#FF000000" android:strokeWidth="2.4" android:strokeLineCap="round" android:strokeLineJoin="round" android:pathData="M11.2 13.6 8.4 17.2 6.8 21M11.2 13.6l3 2.8.8 4.6"/>
+</vector>

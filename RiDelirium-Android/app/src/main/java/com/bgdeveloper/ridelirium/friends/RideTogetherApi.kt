@@ -59,6 +59,14 @@ class RideTogetherApi {
         call("DELETE", "crews/$id/membership", token)
     }
 
+    /** Drops the crew's meet point; the others get a push. */
+    suspend fun setMeet(token: String, id: String, latitude: Double, longitude: Double, kind: MeetKind, inMinutes: Int): Crew {
+        val body = JSONObject().put("lat", latitude).put("lon", longitude).put("kind", kind.key).put("inMinutes", inMinutes)
+        return crew(JSONObject(call("PUT", "crews/$id/meet", token, body)))
+    }
+
+    suspend fun clearMeet(token: String, id: String): Crew = crew(JSONObject(call("DELETE", "crews/$id/meet", token)))
+
     /** Heartbeat with the rider's position; the server keeps only the latest and expires it after 90 seconds. */
     suspend fun setRiding(token: String, riding: Boolean, latitude: Double? = null, longitude: Double? = null, speedKmh: Double? = null) {
         val body = JSONObject().put("riding", riding)
@@ -106,6 +114,16 @@ class RideTogetherApi {
             ownerId = json.getString("ownerId"),
             myExpiresAtMs = if (json.isNull("myExpiresAt")) null else json.getLong("myExpiresAt") * 1000,
             members = List(members.length()) { friend(members.getJSONObject(it)) },
+            meet = json.optJSONObject("meet")?.let { m ->
+                MeetPoint(
+                    latitude = m.getDouble("lat"),
+                    longitude = m.getDouble("lon"),
+                    kind = MeetKind.fromKey(m.optString("kind")),
+                    atMs = m.getLong("at") * 1000,
+                    byId = if (m.isNull("byId")) null else m.optString("byId"),
+                    byName = if (m.isNull("byName")) null else m.optString("byName"),
+                )
+            },
         )
     }
 

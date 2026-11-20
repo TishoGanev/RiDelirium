@@ -317,3 +317,23 @@ function notifyInvite(string $riderId, string $who, string $code, string $crew):
         error_log('Ride Together push: ' . $e->getMessage());
     }
 }
+
+/** "MAYA: MEET AT THE LIFT IN 10 MIN" for everyone else in the crew. Failures are logged, never thrown. */
+function notifyMeet(string $riderId, string $who, string $kind, int $minutes, string $crew, string $crewId): void {
+    $place = ['lift' => 'AT THE LIFT', 'hut' => 'AT THE HUT', 'parking' => 'AT THE PARKING', 'here' => 'HERE'][$kind] ?? 'HERE';
+    $when = $minutes === 0 ? 'NOW' : "IN $minutes MIN";
+    $payload = [
+        'aps' => ['alert' => ['title' => mb_strtoupper($crew), 'body' => mb_strtoupper($who) . ": MEET $place $when"], 'sound' => 'default', 'thread-id' => 'meet'],
+        'event' => 'meet',
+        'crewId' => $crewId,
+    ];
+    try {
+        foreach (q('SELECT token, platform, sandbox FROM devices WHERE rider_id = ?', [$riderId])->fetchAll() as $device) {
+            if (!deliver($device, $payload)) {
+                q('DELETE FROM devices WHERE token = ?', [$device['token']]);
+            }
+        }
+    } catch (Throwable $e) {
+        error_log('Ride Together push: ' . $e->getMessage());
+    }
+}

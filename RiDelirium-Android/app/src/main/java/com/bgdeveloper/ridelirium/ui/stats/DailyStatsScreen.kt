@@ -1,5 +1,16 @@
 package com.bgdeveloper.ridelirium.ui.stats
 
+import com.bgdeveloper.ridelirium.ui.LandscapeBar
+import com.bgdeveloper.ridelirium.ui.LandscapeMetrics
+import com.bgdeveloper.ridelirium.ui.LandscapeStat
+import com.bgdeveloper.ridelirium.ui.isLandscape
+import com.bgdeveloper.ridelirium.ui.landscapePadding
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.ui.platform.LocalLayoutDirection
+
 import androidx.compose.foundation.Canvas
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
@@ -109,6 +120,18 @@ fun DailyStatsScreen(onBack: () -> Unit, viewModel: DailyStatsViewModel = hiltVi
         viewModel.consumeShare()
     }
 
+    if (isLandscape()) {
+        LandscapeDay(
+            ui, viewModel, onBack, onMap = { map = it },
+            onShowSegments = { showSegments = true }, onShowInsights = { showInsights = true },
+            onShare = {
+                scope.launch {
+                    val snapshots = map?.let { shareSnapshots(it, ui.session?.coordinates.orEmpty(), padding) }.orEmpty()
+                    viewModel.prepareShare(snapshots)
+                }
+            },
+        )
+    } else {
     Column(Modifier.fillMaxSize().background(Color.White)) {
         Header(ui, onBack, onShowSegments = { showSegments = true }, onShowInsights = { showInsights = true })
         RouteMap(ui, onMap = { map = it }, modifier = Modifier.weight(1f))
@@ -135,6 +158,7 @@ fun DailyStatsScreen(onBack: () -> Unit, viewModel: DailyStatsViewModel = hiltVi
                 )
             }
         }
+    }
     }
 
     if (showSegments) {
@@ -194,6 +218,83 @@ private suspend fun shareSnapshots(map: GmsMap, coordinates: List<LatLng>, paddi
 private suspend fun mapLoaded(map: GmsMap) = withTimeoutOrNull(3_000) {
     suspendCancellableCoroutine { cont ->
         map.setOnMapLoadedCallback { if (cont.isActive) cont.resume(Unit) }
+    }
+}
+
+/** Sideways: the map fills the screen, the day's numbers and buttons sit in the bottom bar (Landscape.kt). */
+@Composable
+private fun LandscapeDay(
+    ui: DailyUiState,
+    viewModel: DailyStatsViewModel,
+    onBack: () -> Unit,
+    onMap: (GmsMap) -> Unit,
+    onShowSegments: () -> Unit,
+    onShowInsights: () -> Unit,
+    onShare: () -> Unit,
+) {
+    val pad = landscapePadding()
+    val dir = LocalLayoutDirection.current
+    val session = ui.session
+    Box(Modifier.fillMaxSize().background(Sb.MapBackground)) {
+        RouteMap(
+            ui, onMap, Modifier.fillMaxSize(),
+            legendAlignment = Alignment.TopStart,
+            legendPadding = PaddingValues(start = pad.calculateStartPadding(dir), top = pad.calculateTopPadding() + 52.dp),
+        )
+        Column(Modifier.fillMaxSize().padding(pad), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(
+                Modifier.fillMaxWidth().padding(end = LandscapeMetrics.GearSize + 10.dp),
+                verticalAlignment = Alignment.Top,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Row(
+                    Modifier.height(42.dp).widthIn(max = 420.dp).shadow(10.dp, CircleShape).clip(CircleShape).background(Color.White)
+                        .clickable(onClick = onBack).padding(horizontal = 16.dp)
+                        .semantics(mergeDescendants = true) { contentDescription = "Back to Stats" },
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Chevron(color = Sb.Charcoal, pointsLeft = true, size = 9.dp)
+                    Text(ui.kicker, style = sb(14), color = Sb.Charcoal, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+                Spacer(Modifier.weight(1f))
+                Box(Modifier.height(42.dp), contentAlignment = Alignment.Center) { InsightsButton(onShowInsights) }
+            }
+            Spacer(Modifier.weight(1f))
+            if (ui.replay.active) {
+                val shape = RoundedCornerShape(26.dp)
+                Box(Modifier.align(Alignment.CenterHorizontally).widthIn(max = 560.dp).shadow(20.dp, shape).clip(shape).background(Color.White)) {
+                    ReplayControls(ui, viewModel, inCard = true)
+                }
+            } else {
+                LandscapeBar(
+                    trailing = {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            ActionButton(
+                                "", ActionIcon.Play, primary = false, modifier = Modifier.width(56.dp),
+                                enabled = (session?.points?.size ?: 0) >= 2, contentDescription = "Replay", onClick = viewModel::startReplay,
+                            )
+                            ActionButton("", ActionIcon.Download, primary = false, modifier = Modifier.width(56.dp), contentDescription = "Export CSV", onClick = viewModel::export)
+                            ActionButton("SHARE", ActionIcon.Share, primary = true, modifier = Modifier.widthIn(min = 120.dp), loading = ui.isPreparingShare, onClick = onShare)
+                        }
+                    },
+                ) {
+                    LandscapeStat(
+                        ui.units.distanceUnit.uppercase(), "%.1f".format(ui.units.distanceValue(session?.distance ?: 0.0)),
+                        size = 34, labelColor = Sb.Red,
+                    )
+                    LandscapeStat("MAX", ui.units.speed(session?.maxSpeed ?: 0.0), size = 20)
+                    if (ui.analysis.segments.isNotEmpty()) {
+                        val runs = ui.analysis.runs.size
+                        LandscapeStat(
+                            "RIDING · $runs ${if (runs == 1) "RUN" else "RUNS"}",
+                            ui.units.compactDuration(ui.analysis.duration(Activity.RUN)), size = 20,
+                            modifier = Modifier.clickable(onClick = onShowSegments),
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -272,7 +373,13 @@ private fun InsightsButton(onClick: () -> Unit) {
 }
 
 @Composable
-private fun RouteMap(ui: DailyUiState, onMap: (GmsMap) -> Unit, modifier: Modifier) {
+private fun RouteMap(
+    ui: DailyUiState,
+    onMap: (GmsMap) -> Unit,
+    modifier: Modifier,
+    legendAlignment: Alignment = Alignment.TopEnd,
+    legendPadding: PaddingValues = PaddingValues(12.dp),
+) {
     val context = LocalContext.current
     val density = LocalDensity.current
     val camera = rememberCameraPositionState()
@@ -341,7 +448,7 @@ private fun RouteMap(ui: DailyUiState, onMap: (GmsMap) -> Unit, modifier: Modifi
         }
         if (parts.isNotEmpty()) {
             Row(
-                Modifier.align(Alignment.TopEnd).padding(12.dp).clip(RoundedCornerShape(50))
+                Modifier.align(legendAlignment).padding(legendPadding).clip(RoundedCornerShape(50))
                     .background(Color.Black.copy(alpha = 0.55f)).padding(horizontal = 12.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
@@ -418,8 +525,10 @@ private fun ActionButton(
             CircularProgressIndicator(Modifier.size(24.dp), color = foreground, strokeWidth = 2.dp)
         } else {
             ActionGlyph(icon, foreground)
-            Spacer(Modifier.width(if (primary) 8.dp else 7.dp))
-            Text(title, style = sb(if (primary) 20 else 18), color = foreground, maxLines = 1)
+            if (title.isNotEmpty()) {
+                Spacer(Modifier.width(if (primary) 8.dp else 7.dp))
+                Text(title, style = sb(if (primary) 20 else 18), color = foreground, maxLines = 1)
+            }
         }
     }
 }
@@ -499,14 +608,14 @@ private fun rememberRiderIcon(): BitmapDescriptor {
 
 /** Playback panel shown in place of Replay / Share / Export while a ride is being replayed. */
 @Composable
-private fun ReplayControls(ui: DailyUiState, viewModel: DailyStatsViewModel) {
+private fun ReplayControls(ui: DailyUiState, viewModel: DailyStatsViewModel, inCard: Boolean = false) {
     val replay = ui.replay
     val model = ui.replayModel ?: return
     val units: Units = ui.units
     val small = RoundedCornerShape(16.dp)
 
     Column(
-        Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 106.dp + navigationBarBottom()),
+        Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = if (inCard) 14.dp else 106.dp + navigationBarBottom()),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {

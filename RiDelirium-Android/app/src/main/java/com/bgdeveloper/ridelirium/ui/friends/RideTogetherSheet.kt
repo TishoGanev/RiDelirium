@@ -3,6 +3,10 @@ package com.bgdeveloper.ridelirium.ui.friends
 import androidx.compose.material3.rememberModalBottomSheetState
 import com.bgdeveloper.ridelirium.friends.timeLeftLabel
 import com.bgdeveloper.ridelirium.friends.Stay
+import com.bgdeveloper.ridelirium.friends.sharingLabel
+import java.time.Instant
+import java.time.ZonedDateTime
+import java.time.ZoneId
 import com.bgdeveloper.ridelirium.friends.CrewPreview
 import com.bgdeveloper.ridelirium.friends.Crew
 import android.os.Build
@@ -92,7 +96,6 @@ private val StatusGreen = Color(0xFF30D158)
 private val StatusAmber = Color(0xFFFFB020)
 private val StatusGrey = Color(0xFFC9CDD3)
 private val OfflineAvatar = Color(0xFF8C939D)
-private val LightBorder = Color(0xFFE4E4E4)
 
 private fun lookOf(friend: Friend, now: Long): Look = when {
     !friend.hasPosition -> Look.OFFLINE
@@ -119,7 +122,8 @@ fun RideTogetherSheet(onDismiss: () -> Unit, viewModel: FriendsViewModel = hiltV
 
     LaunchedEffect(ui.me) { if (ui.me != null) viewModel.reload() }
     // The screen stays awake while a code is up, so it does not lock before the friend has scanned it.
-    val showingCode = screen is Screen.InviteCode
+    val showingCode = screen is Screen.InviteCode ||
+        (screen as? Screen.Detail)?.let { d -> ui.crews.firstOrNull { it.id == d.crewId }?.others(ui.me?.id)?.isEmpty() } == true
     DisposableEffect(showingCode) {
         view.keepScreenOn = showingCode
         onDispose { view.keepScreenOn = false }
@@ -178,7 +182,7 @@ fun RideTogetherSheet(onDismiss: () -> Unit, viewModel: FriendsViewModel = hiltV
                 current is Screen.InviteCode && crewOf(current.crewId) != null -> {
                     val crew = crewOf(current.crewId)!!
                     Column(Modifier.padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
-                        BackTitle(crew.name.uppercase()) { screen = Screen.Detail(crew.id) }
+                        BackTitle(crew.name.uppercase(), onBack = { screen = Screen.Detail(crew.id) })
                         ShareTab(crew.invite.url, crew.code, ui.joinBanner, failed = false, onRetry = {}, onShare = { shareInvite(context, crew, onDismiss) })
                     }
                 }
@@ -189,7 +193,7 @@ fun RideTogetherSheet(onDismiss: () -> Unit, viewModel: FriendsViewModel = hiltV
                     onCreate = { name -> viewModel.createCrew(name) { crew -> if (crew != null) screen = Screen.InviteCode(crew.id) } },
                 )
                 current is Screen.Join -> Column(Modifier.padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
-                    BackTitle("JOIN A CREW") { screen = Screen.Home; viewModel.clearError() }
+                    BackTitle("JOIN A CREW", onBack = { screen = Screen.Home; viewModel.clearError() })
                     JoinTab(ui.isJoining, onCode = viewModel::preview)
                     ui.joinError?.let { Text(it, style = sb(14, FontWeight.SemiBold), color = Sb.Red) }
                 }
@@ -223,21 +227,23 @@ fun RideTogetherSheet(onDismiss: () -> Unit, viewModel: FriendsViewModel = hiltV
     }
 
     changeTime?.let { crew ->
-        AlertDialog(
+        // The same picker as joining, opening on the current end time.
+        var end by remember(crew.id) {
+            val current = crew.myExpiresAtMs?.takeIf { it > System.currentTimeMillis() }
+                ?.let { Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()) }
+            mutableStateOf(Stay.clamp(current ?: Stay.defaultEnd()))
+        }
+        ModalBottomSheet(
             onDismissRequest = { changeTime = null },
-            title = { Text("How long are you riding with ${crew.name}?", style = sb(20)) },
-            text = {
-                Column {
-                    Stay.entries.forEach { stay ->
-                        TextButton(onClick = { viewModel.setStay(crew.id, stay); changeTime = null }, modifier = Modifier.fillMaxWidth()) {
-                            Text(stay.title, style = sb(18), color = Sb.Charcoal)
-                        }
-                    }
-                }
-            },
-            confirmButton = {},
-            dismissButton = { TextButton(onClick = { changeTime = null }) { Text("CANCEL", style = sb(17), color = Sb.Charcoal) } },
-        )
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+            containerColor = Color.White,
+        ) {
+            Column(Modifier.padding(horizontal = 20.dp).padding(bottom = 28.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Text(crew.name.uppercase(), style = sb(26, FontWeight.ExtraBold), color = Sb.Charcoal, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                StayPicker(end) { end = it }
+                BigButton("SAVE · UNTIL ${Stay.clock(end)}", Sb.Red, Color.White) { viewModel.setStay(crew.id, end); changeTime = null }
+            }
+        }
     }
 
     rename?.let { crew ->
@@ -264,7 +270,7 @@ private fun shareInvite(context: android.content.Context, crew: Crew, onSent: ()
 }
 
 @Composable
-private fun BackTitle(title: String, onBack: () -> Unit) {
+private fun BackTitle(title: String, onBack: () -> Unit, trailing: (@Composable () -> Unit)? = null) {
     Box(Modifier.fillMaxWidth().padding(top = 4.dp), contentAlignment = Alignment.Center) {
         Text(title, style = sb(20), color = Sb.Charcoal, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 56.dp))
         Box(
@@ -272,6 +278,25 @@ private fun BackTitle(title: String, onBack: () -> Unit) {
                 .clickable(onClick = onBack).semantics { contentDescription = "Back" },
             contentAlignment = Alignment.Center,
         ) { Chevron(color = Sb.Charcoal, pointsLeft = true) }
+        if (trailing != null) Box(Modifier.align(Alignment.CenterEnd)) { trailing() }
+    }
+}
+
+/** The rarely used crew actions, kept out of the way behind "⋯". */
+@Composable
+private fun CrewMenu(isOwner: Boolean, onChangeTime: () -> Unit, onRename: () -> Unit, onLeave: () -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    Box {
+        Row(
+            Modifier.size(40.dp).clip(CircleShape).background(Sb.LightGrey).clickable { open = true }
+                .semantics { contentDescription = "Crew options" },
+            horizontalArrangement = Arrangement.spacedBy(3.dp, Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically,
+        ) { repeat(3) { Box(Modifier.size(5.dp).clip(CircleShape).background(Sb.Charcoal)) } }
+        androidx.compose.material3.DropdownMenu(expanded = open, onDismissRequest = { open = false }, containerColor = Color.White) {
+            androidx.compose.material3.DropdownMenuItem(text = { Text("CHANGE TIME", style = sb(17), color = Sb.Charcoal) }, onClick = { open = false; onChangeTime() })
+            if (isOwner) androidx.compose.material3.DropdownMenuItem(text = { Text("RENAME CREW", style = sb(17), color = Sb.Charcoal) }, onClick = { open = false; onRename() })
+            androidx.compose.material3.DropdownMenuItem(text = { Text("LEAVE CREW", style = sb(17), color = Sb.Red) }, onClick = { open = false; onLeave() })
+        }
     }
 }
 
@@ -352,69 +377,71 @@ private fun CrewDetail(
     onShare: () -> Unit, onChangeTime: () -> Unit, onLeave: () -> Unit, onRename: () -> Unit,
 ) {
     val isOwner = crew.ownerId == me?.id
+    val friends = crew.others(me?.id)
     Column(Modifier.padding(horizontal = 20.dp)) {
-        BackTitle(crew.name.uppercase(), onBack)
-        Row(Modifier.fillMaxWidth().padding(top = 6.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+        BackTitle(crew.name.uppercase(), onBack) { CrewMenu(isOwner, onChangeTime, onRename, onLeave) }
+        val left = sharingLabel(crew.myExpiresAtMs, now) ?: "YOU STAY UNTIL YOU LEAVE"
+        Text(
+            if (friends.isEmpty()) "JUST YOU SO FAR · $left" else left,
+            style = sb(12, tracking = 0.04f), color = Sb.Secondary,
+            modifier = Modifier.fillMaxWidth().padding(top = 6.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+        )
+    }
+
+    val recentRow = @Composable {
+        if (recent.isNotEmpty()) {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("RECENT RIDERS", style = sb(13, tracking = 0.08f), color = Sb.Secondary, modifier = Modifier.padding(horizontal = 20.dp))
+                Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    recent.forEach { RiderChip(it, it.id in invited) { onInvite(it) } }
+                }
+            }
+        }
+    }
+
+    if (friends.isEmpty()) {
+        // Nobody else is here yet, so inviting is the only thing to do: the code leads.
+        Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            val qr = remember(crew.invite.url) { qrBitmap(crew.invite.url) }
+            Box(Modifier.clip(RoundedCornerShape(28.dp)).border(1.5.dp, Color(0xFFEAEAEA), RoundedCornerShape(28.dp)).background(Color.White).padding(20.dp)) {
+                Image(qr.asImageBitmap(), contentDescription = "Invite QR code", Modifier.size(210.dp))
+            }
+            Text(formatCode(crew.code), style = sb(36, FontWeight.ExtraBold, tracking = 0.1f, tabular = true), color = Sb.Charcoal)
             Text(
-                (timeLeftLabel(crew.myExpiresAtMs, now) ?: "YOU STAY UNTIL YOU LEAVE") + if (isOwner) " · RENAME" else "",
-                style = sb(12, tracking = 0.04f), color = Sb.Secondary,
-                modifier = if (isOwner) Modifier.clickable(onClick = onRename) else Modifier,
+                "Let friends scan this, or add someone you rode with.",
+                style = sb(15, FontWeight.SemiBold), color = Sb.Secondary, textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                modifier = Modifier.widthIn(max = 300.dp),
             )
         }
+        recentRow()
+        Box(
+            Modifier.padding(horizontal = 20.dp).fillMaxWidth().height(58.dp).clip(CircleShape).background(Sb.Red).clickable(onClick = onShare),
+            contentAlignment = Alignment.Center,
+        ) { Text("SHARE CREW LINK", style = sb(19), color = Color.White) }
+        return
     }
 
-    val friends = crew.others(me?.id)
-    if (friends.isNotEmpty()) {
-        val rows = friends.map { Triple(it, lookOf(it, now), metersTo(it)) }.sortedWith(
-            compareBy({ it.second.ordinal }, { it.third ?: Int.MAX_VALUE }),
-        )
-        Text(
-            "ON THE MAP · ${rows.count { it.second != Look.OFFLINE }} OF ${rows.size}",
-            style = sb(13, tracking = 0.08f), color = Sb.Secondary, modifier = Modifier.padding(horizontal = 20.dp),
-        )
-        Column(Modifier.padding(horizontal = 20.dp)) {
-            rows.forEach { (friend, look, meters) ->
-                CrewRow(friend, look, meters, if (look == Look.OFFLINE) null else bearingTo(friend), units, now, sent = now - (waitSent[friend.id] ?: 0L) < 30_000, onWait = { onWait(friend) }, onShowOnMap = { onShowOnMap(friend) })
-            }
-        }
-    } else {
-        Text(
-            "Nobody else is here yet. Show them the code below, or share the link.",
-            style = sb(16, FontWeight.SemiBold), color = Sb.Secondary, modifier = Modifier.padding(horizontal = 20.dp),
-        )
-    }
-
-    if (recent.isNotEmpty()) {
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text("RECENT RIDERS", style = sb(13, tracking = 0.08f), color = Sb.Secondary, modifier = Modifier.padding(horizontal = 20.dp))
-            Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                recent.forEach { RiderChip(it, it.id in invited) { onInvite(it) } }
-            }
+    val rows = friends.map { Triple(it, lookOf(it, now), metersTo(it)) }.sortedWith(
+        compareBy({ it.second.ordinal }, { it.third ?: Int.MAX_VALUE }),
+    )
+    Text(
+        "ON THE MAP · ${rows.count { it.second != Look.OFFLINE }} OF ${rows.size}",
+        style = sb(13, tracking = 0.08f), color = Sb.Secondary, modifier = Modifier.padding(horizontal = 20.dp),
+    )
+    Column(Modifier.padding(horizontal = 20.dp)) {
+        rows.forEach { (friend, look, meters) ->
+            CrewRow(friend, look, meters, if (look == Look.OFFLINE) null else bearingTo(friend), units, now, sent = now - (waitSent[friend.id] ?: 0L) < 30_000, onWait = { onWait(friend) }, onShowOnMap = { onShowOnMap(friend) })
         }
     }
 
-    CodeCard(crew.code, crew.invite.url, onCode)
+    recentRow()
 
-    Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        Box(
-            Modifier.weight(1f).height(58.dp).clip(CircleShape).background(if (selected) Sb.Charcoal else Sb.Red).clickable(onClick = onSelect),
-            contentAlignment = Alignment.Center,
-        ) { Text(if (selected) "ON THE MAP" else "SHOW ON MAP", style = sb(19), color = Color.White) }
-        Box(
-            Modifier.weight(1f).height(58.dp).clip(CircleShape).background(Sb.LightGrey).clickable(onClick = onShare),
-            contentAlignment = Alignment.Center,
-        ) { Text("SHARE", style = sb(19), color = Sb.Charcoal) }
-    }
-    Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        Box(
-            Modifier.weight(1f).height(48.dp).border(1.5.dp, LightBorder, CircleShape).clip(CircleShape).clickable(onClick = onChangeTime),
-            contentAlignment = Alignment.Center,
-        ) { Text("CHANGE TIME", style = sb(15), color = Sb.Charcoal) }
-        Box(
-            Modifier.weight(1f).height(48.dp).border(1.5.dp, LightBorder, CircleShape).clip(CircleShape).clickable(onClick = onLeave),
-            contentAlignment = Alignment.Center,
-        ) { Text("LEAVE CREW", style = sb(15), color = Sb.Red) }
-    }
+    CodeCard(crew.code, crew.invite.url, onCode, onShare)
+
+    Box(
+        Modifier.padding(horizontal = 20.dp).fillMaxWidth().height(58.dp).clip(CircleShape).background(if (selected) Sb.Charcoal else Sb.Red).clickable(onClick = onSelect),
+        contentAlignment = Alignment.Center,
+    ) { Text(if (selected) "ON THE MAP" else "SHOW ON MAP", style = sb(19), color = Color.White) }
 }
 
 private fun Modifier.pill(color: Color, height: Int = 40) = this.height(height.dp).clip(RoundedCornerShape(20.dp)).background(color)
@@ -496,28 +523,35 @@ private fun RiderChip(rider: Friend, invited: Boolean, onClick: () -> Unit) {
     }
 }
 
+/** The invite: tap to show the big code, or the share icon to send the link. */
 @Composable
-private fun CodeCard(code: String?, url: String?, onClick: () -> Unit) {
+private fun CodeCard(code: String?, url: String?, onClick: () -> Unit, onShare: () -> Unit) {
     Row(
-        Modifier.padding(horizontal = 20.dp).fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(Sb.LightGrey)
-            .clickable(onClick = onClick).padding(14.dp)
-            .semantics { contentDescription = "Invite code, tap to enlarge" },
+        Modifier.padding(horizontal = 20.dp).fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(Sb.LightGrey).padding(14.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        Box(Modifier.size(76.dp).clip(RoundedCornerShape(14.dp)).background(Color.White).padding(8.dp), contentAlignment = Alignment.Center) {
-            if (url != null) {
-                val qr = remember(url) { qrBitmap(url) }
-                Image(qr.asImageBitmap(), null, Modifier.fillMaxWidth())
-            } else CircularProgressIndicator(Modifier.size(24.dp), color = Sb.Red, strokeWidth = 2.dp)
+        Row(
+            Modifier.weight(1f).clickable(onClick = onClick).semantics { contentDescription = "Invite code, tap to enlarge" },
+            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            Box(Modifier.size(76.dp).clip(RoundedCornerShape(14.dp)).background(Color.White).padding(8.dp), contentAlignment = Alignment.Center) {
+                if (url != null) {
+                    val qr = remember(url) { qrBitmap(url) }
+                    Image(qr.asImageBitmap(), null, Modifier.fillMaxWidth())
+                } else CircularProgressIndicator(Modifier.size(24.dp), color = Sb.Red, strokeWidth = 2.dp)
+            }
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text("INVITE · TAP TO SHOW OR SHARE", style = sb(12), color = Sb.Secondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(code?.let(::formatCode) ?: "—", style = sb(26, tracking = 0.08f, tabular = true), color = Sb.Charcoal, maxLines = 1)
+            }
         }
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text("INVITE CODE · TAP TO ENLARGE", style = sb(12), color = Sb.Secondary)
-            Text(code?.let(::formatCode) ?: "—", style = sb(26, tracking = 0.08f, tabular = true), color = Sb.Charcoal, maxLines = 1)
-        }
+        Box(
+            Modifier.size(44.dp).clip(CircleShape).background(Color.White).clickable(onClick = onShare)
+                .semantics { contentDescription = "Share crew link" },
+            contentAlignment = Alignment.Center,
+        ) { Icon(painterResource(com.bgdeveloper.ridelirium.R.drawable.ic_share), null, tint = Sb.Charcoal, modifier = Modifier.size(20.dp)) }
     }
 }
-
-
 
 @Composable
 private fun ShareTab(url: String?, code: String?, joinBanner: String?, failed: Boolean, onRetry: () -> Unit, onShare: () -> Unit) {
@@ -598,8 +632,8 @@ private fun NewCrewStep(defaultName: String, error: String?, onBack: () -> Unit,
 
 /** What the code opens, and how long to stay. */
 @Composable
-private fun PreviewStep(preview: CrewPreview, isJoining: Boolean, error: String?, onJoin: (Stay) -> Unit, onCancel: () -> Unit) {
-    var stay by remember { mutableStateOf(Stay.TODAY) }
+private fun PreviewStep(preview: CrewPreview, isJoining: Boolean, error: String?, onJoin: (ZonedDateTime) -> Unit, onCancel: () -> Unit) {
+    var end by remember(preview.code) { mutableStateOf(Stay.defaultEnd()) }
     Column(Modifier.padding(horizontal = 20.dp).padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         BackTitle("JOIN A CREW", onCancel)
         Text(preview.name.uppercase(), style = sb(32, FontWeight.ExtraBold), color = Sb.Charcoal)
@@ -610,11 +644,8 @@ private fun PreviewStep(preview: CrewPreview, isJoining: Boolean, error: String?
         if (preview.isMember) {
             Text("You are already in this crew. Joining again changes how long you stay.", style = sb(15, FontWeight.SemiBold), color = Sb.Secondary)
         }
-        Text("HOW LONG ARE YOU RIDING WITH THEM?", style = sb(13, tracking = 0.08f), color = Sb.Secondary, modifier = Modifier.padding(top = 8.dp))
-        Row(Modifier.fillMaxWidth().border(1.5.dp, Sb.Charcoal, RoundedCornerShape(16.dp)).clip(RoundedCornerShape(16.dp))) {
-            Stay.entries.forEach { option -> SegmentOption(option.title, option == stay, Modifier.weight(1f)) { stay = option } }
-        }
-        BigButton(if (isJoining) "JOINING…" else "JOIN", Sb.Red, Color.White) { if (!isJoining) onJoin(stay) }
+        Box(Modifier.padding(top = 4.dp)) { StayPicker(end) { end = it } }
+        BigButton(if (isJoining) "JOINING…" else "JOIN · UNTIL ${Stay.clock(end)}", Sb.Red, Color.White) { if (!isJoining) onJoin(end) }
         error?.let { Text(it, style = sb(14, FontWeight.SemiBold), color = Sb.Red) }
     }
 }
@@ -633,14 +664,6 @@ private fun JoinedScreen(crew: Crew, onDone: () -> Unit) {
 }
 
 // endregion
-
-@Composable
-private fun SegmentOption(title: String, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
-    Box(
-        modifier.height(44.dp).background(if (selected) Sb.Charcoal else Color.White).clickable(onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) { Text(title, style = sb(15), color = if (selected) Color.White else Sb.Charcoal) }
-}
 
 
 /** "w858b7ba" -> "W858-B7BA": letters and digits only, a dash after the fourth, eight at most. */

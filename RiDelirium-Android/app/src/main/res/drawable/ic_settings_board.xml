@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Settings button: gear ring with the rider's sport inside. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp" android:viewportWidth="100" android:viewportHeight="100">
+    <path android:fillColor="#FFFFFF" android:fillType="evenOdd" android:pathData="M50.00 8.00 L55.26 8.33 L58.99 2.85 L70.44 6.57 L70.23 13.20 L74.69 16.02 L78.75 19.38 L84.99 17.14 L92.06 26.88 L88.00 32.12 L89.94 37.02 L91.26 42.13 L97.62 43.98 L97.62 56.02 L91.26 57.87 L89.94 62.98 L88.00 67.88 L92.06 73.12 L84.99 82.86 L78.75 80.62 L74.69 83.98 L70.23 86.80 L70.44 93.43 L58.99 97.15 L55.26 91.67 L50.00 92.00 L44.74 91.67 L41.01 97.15 L29.56 93.43 L29.77 86.80 L25.31 83.98 L21.25 80.62 L15.01 82.86 L7.94 73.12 L12.00 67.88 L10.06 62.98 L8.74 57.87 L2.38 56.02 L2.38 43.98 L8.74 42.13 L10.06 37.02 L12.00 32.12 L7.94 26.88 L15.01 17.14 L21.25 19.38 L25.31 16.02 L29.77 13.20 L29.56 6.57 L41.01 2.85 L44.74 8.33Z M88.00 50.00 A38 38 0 1 0 12.00 50.00 A38 38 0 1 0 88.00 50.00Z" />
+    <group android:translateX="20" android:translateY="20" android:scaleX="2.5" android:scaleY="2.5">
+        <path android:fillColor="#FFFFFF" android:pathData="M10.2,4.0 a2.3,2.3 0 1,0 4.6,0 a2.3,2.3 0 1,0 -4.6,0" />
+        <path android:strokeColor="#FFFFFF" android:strokeWidth="2.4" android:strokeLineCap="round" android:strokeLineJoin="round" android:pathData="M12.3 7.5v4.6" />
+        <path android:strokeColor="#FFFFFF" android:strokeWidth="2.4" android:strokeLineCap="round" android:strokeLineJoin="round" android:pathData="M6.8 9.6l5.5-.6 5.4-1.4" />
+        <path android:strokeColor="#FFFFFF" android:strokeWidth="2.4" android:strokeLineCap="round" android:strokeLineJoin="round" android:pathData="M12.3 12.1 9.2 14.6l-.6 3.6M12.3 12.1l3.1 2 .5 3.3" />
+        <path android:strokeColor="#FFFFFF" android:strokeWidth="2.8" android:strokeLineCap="round" android:strokeLineJoin="round" android:pathData="M3 19.6 21 16.6" />
+    </group>
+</vector>

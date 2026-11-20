@@ -32,6 +32,12 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.unit.Dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.bgdeveloper.ridelirium.friends.Sport
+import com.bgdeveloper.ridelirium.ui.settings.SettingsViewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -64,6 +70,18 @@ fun AppRoot() {
         if (tab == AppTab.Settings && settingsNav.previousBackStackEntry != null) settingsNav.popBackStack() else tab = AppTab.Track
     }
 
+    val landscape = isLandscape()
+    val landscapeNav = LandscapeNav(
+        trackActive = tab == AppTab.Track,
+        statsActive = tab == AppTab.Stats,
+        onTrack = { tab = AppTab.Track },
+        onStats = {
+            if (tab == AppTab.Stats) nav.popBackStack(STATS_ROUTE, inclusive = false)
+            tab = AppTab.Stats
+        },
+    )
+
+    CompositionLocalProvider(LocalLandscapeNav provides landscapeNav) {
     Box(Modifier.fillMaxSize().background(Color.White)) {
         // Track stays composed so the map camera and the live ride keep their state.
         TrackScreen()
@@ -81,6 +99,14 @@ fun AppRoot() {
             }
         }
 
+        if (landscape) {
+            // Sideways the tabs live in each screen's bottom bar (Landscape.kt); settings sits top-right.
+            val sport by hiltViewModel<SettingsViewModel>().sport.collectAsState()
+            val pad = landscapePadding()
+            Box(Modifier.align(Alignment.TopEnd).padding(top = pad.calculateTopPadding(), end = pad.calculateRightPadding(androidx.compose.ui.unit.LayoutDirection.Ltr))) {
+                SettingsTabButton(sport = sport, active = tab == AppTab.Settings, onClick = { tab = AppTab.Settings }, size = LandscapeMetrics.GearSize)
+            }
+        } else {
         Row(
             Modifier.align(Alignment.BottomCenter)
                 .padding(horizontal = 14.dp)
@@ -97,8 +123,11 @@ fun AppRoot() {
                 },
                 modifier = Modifier.weight(1f),
             )
-            SettingsTabButton(active = tab == AppTab.Settings, onClick = { tab = AppTab.Settings })
+            val sport by hiltViewModel<SettingsViewModel>().sport.collectAsState()
+            SettingsTabButton(sport = sport, active = tab == AppTab.Settings, onClick = { tab = AppTab.Settings })
         }
+        }
+    }
     }
 }
 
@@ -141,12 +170,21 @@ private fun FloatingTabBar(selected: AppTab, onTrack: () -> Unit, onStats: () ->
     }
 }
 
+/** The settings button: a gear with the rider's own sport inside. */
+private val Sport.settingsIcon: Int
+    get() = when (this) {
+        Sport.SKI -> R.drawable.ic_settings_ski
+        Sport.BOARD -> R.drawable.ic_settings_board
+        Sport.BIKE -> R.drawable.ic_settings_bike
+        Sport.WALK -> R.drawable.ic_settings_walk
+    }
+
 /** Settings sits beside the tab bar as its own round button. */
 @Composable
-private fun SettingsTabButton(active: Boolean, onClick: () -> Unit) {
+private fun SettingsTabButton(sport: Sport, active: Boolean, onClick: () -> Unit, size: Dp = 62.dp) {
     Box(
         Modifier
-            .size(62.dp)
+            .size(size)
             .shadow(15.dp, CircleShape, ambientColor = Color.Black.copy(0.3f), spotColor = Color.Black.copy(0.3f))
             .clip(CircleShape)
             .background(Sb.Red)
@@ -155,7 +193,7 @@ private fun SettingsTabButton(active: Boolean, onClick: () -> Unit) {
             .semantics { contentDescription = "Settings" },
         contentAlignment = Alignment.Center,
     ) {
-        Icon(painterResource(R.drawable.ic_settings), contentDescription = null, tint = Color.White.copy(alpha = if (active) 1f else 0.85f), modifier = Modifier.size(24.dp))
+        Icon(painterResource(sport.settingsIcon), contentDescription = null, tint = Color.White.copy(alpha = if (active) 1f else 0.85f), modifier = Modifier.size(size * 40 / 62))
     }
 }
 

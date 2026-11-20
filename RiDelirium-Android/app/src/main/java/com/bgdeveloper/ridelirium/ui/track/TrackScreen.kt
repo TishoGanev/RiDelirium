@@ -98,6 +98,12 @@ import com.bgdeveloper.ridelirium.domain.Activity
 import com.bgdeveloper.ridelirium.domain.Units
 import com.bgdeveloper.ridelirium.ui.navigationBarBottom
 import com.bgdeveloper.ridelirium.ui.statusBarTop
+import com.bgdeveloper.ridelirium.ui.LandscapeBar
+import com.bgdeveloper.ridelirium.ui.LandscapeMetrics
+import com.bgdeveloper.ridelirium.ui.LandscapeStat
+import com.bgdeveloper.ridelirium.ui.isLandscape
+import com.bgdeveloper.ridelirium.ui.landscapePadding
+import androidx.compose.foundation.layout.Spacer
 import com.bgdeveloper.ridelirium.ui.theme.Sb
 import com.bgdeveloper.ridelirium.ui.theme.sb
 import com.google.android.gms.maps.CameraUpdateFactory
@@ -122,6 +128,11 @@ fun TrackScreen(viewModel: TrackViewModel = hiltViewModel(), friendsViewModel: F
     val scope = rememberCoroutineScope()
     val tracking = ui.tracking
     val context = LocalContext.current
+    // A long press on the map while in a crew drops its meet point there.
+    var meetDraft by remember { mutableStateOf<LatLng?>(null) }
+    var confirmClearMeet by remember { mutableStateOf(false) }
+    var hiddenMeetAt by remember { mutableStateOf<Long?>(null) }
+    val meet = friendsUi.selectedCrew?.meet
 
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
         viewModel.onPermissionResult()
@@ -249,13 +260,26 @@ fun TrackScreen(viewModel: TrackViewModel = hiltViewModel(), friendsViewModel: F
         GoogleMap(
             modifier = Modifier.fillMaxSize(),
             cameraPositionState = camera,
-            contentPadding = PaddingValues(top = statusBarTop() + 76.dp, bottom = mapBottomPadding),
+            contentPadding = if (isLandscape()) PaddingValues(top = 70.dp, bottom = LandscapeMetrics.BarHeight + 24.dp)
+                else PaddingValues(top = statusBarTop() + 76.dp, bottom = mapBottomPadding),
             properties = MapProperties(mapStyleOptions = darkStyle),
             uiSettings = MapUiSettings(
                 zoomControlsEnabled = false, compassEnabled = false,
                 mapToolbarEnabled = false, myLocationButtonEnabled = false,
             ),
+            onMapLongClick = { spot -> if (friendsUi.selectedCrew != null) meetDraft = spot },
         ) {
+            // The crew's meet point, under the riders.
+            if (meet != null) {
+                key("meet", meet.atMs, meet.latitude, meet.longitude) {
+                    val meetState = rememberMarkerState(key = "meet-${meet.atMs}-${meet.latitude}-${meet.longitude}", position = LatLng(meet.latitude, meet.longitude))
+                    MarkerComposable(
+                        meet, now / 20_000,
+                        state = meetState, anchor = Offset(0.5f, 1f), zIndex = 0.5f,
+                        onClick = { confirmClearMeet = true; true },
+                    ) { MeetPin(meet, now) }
+                }
+            }
             if (tracking.coordinates.size > 1) {
                 Polyline(
                     points = tracking.coordinates, color = Sb.Red,
@@ -294,6 +318,62 @@ fun TrackScreen(viewModel: TrackViewModel = hiltViewModel(), friendsViewModel: F
             }
         }
 
+        if (isLandscape()) {
+            // Sideways: crew pill and map buttons along the top, one low bar along the bottom (Landscape.kt).
+            Column(Modifier.fillMaxSize().padding(landscapePadding()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(
+                    Modifier.fillMaxWidth().padding(end = LandscapeMetrics.GearSize + 10.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.Top,
+                ) {
+                    Box(Modifier.widthIn(max = 340.dp)) { RideTogetherPill(now) }
+                    if (meet != null && hiddenMeetAt != meet.atMs) {
+                        val spot = LatLng(meet.latitude, meet.longitude)
+                        val meters = here?.let {
+                            val out = FloatArray(1)
+                            android.location.Location.distanceBetween(it.latitude, it.longitude, spot.latitude, spot.longitude, out)
+                            out[0].toInt()
+                        }
+                        MeetBanner(
+                            meet, meters?.let { shortDistance(ui.units, it) }, setByMe = meet.byId == friendsUi.me?.id, now,
+                            onTap = {
+                                viewModel.stopFollowing()
+                                scope.launch { camera.animate(CameraUpdateFactory.newLatLng(spot), 450) }
+                            },
+                            onHide = { hiddenMeetAt = meet.atMs },
+                            modifier = Modifier.widthIn(max = 380.dp),
+                        )
+                    }
+                    Spacer(Modifier.weight(1f))
+                    if (friendsUi.onMap.isNotEmpty()) ShowEveryoneButton(showEveryone)
+                    MapButton(ui, onRecenter = recenter, onFollow = viewModel::startFollowing, onUnfollow = viewModel::stopFollowing)
+                }
+                Spacer(Modifier.weight(1f))
+                val shown = selected
+                if (shown != null) {
+                    val meters = if (here != null && shown.hasPosition) {
+                        val out = FloatArray(1)
+                        android.location.Location.distanceBetween(here.latitude, here.longitude, shown.latitude!!, shown.longitude!!, out)
+                        out[0].toInt()
+                    } else null
+                    val sent = now - (waitSent[shown.id] ?: 0L) < 30_000
+                    Box(Modifier.align(Alignment.End).widthIn(max = 460.dp)) {
+                        SelectedFriendCard(
+                            shown, meters?.let { shortDistance(ui.units, it) }, sent,
+                            onWait = {
+                                waitSent[shown.id] = System.currentTimeMillis()
+                                now = System.currentTimeMillis()
+                                friendsViewModel.askToWait(shown.id) { ok -> if (!ok) waitSent.remove(shown.id) }
+                            },
+                            onClose = { selectedId = null },
+                        )
+                    }
+                }
+                LandscapeBar(trailing = { LandscapeTrackButtons(ui, viewModel, start) }) {
+                    LandscapeTrackStats(ui, friendsUi.friends, now, friendsViewModel::openSheet)
+                }
+            }
+        } else {
         Column(Modifier.fillMaxSize()) {
             Row(
                 Modifier.padding(top = statusBarTop() + 14.dp, start = 12.dp, end = 12.dp),
@@ -301,6 +381,23 @@ fun TrackScreen(viewModel: TrackViewModel = hiltViewModel(), friendsViewModel: F
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Box(Modifier.weight(1f)) { RideTogetherPill(now) }
+            }
+            if (meet != null && hiddenMeetAt != meet.atMs) {
+                val spot = LatLng(meet.latitude, meet.longitude)
+                val meters = here?.let {
+                    val out = FloatArray(1)
+                    android.location.Location.distanceBetween(it.latitude, it.longitude, spot.latitude, spot.longitude, out)
+                    out[0].toInt()
+                }
+                MeetBanner(
+                    meet, meters?.let { shortDistance(ui.units, it) }, setByMe = meet.byId == friendsUi.me?.id, now,
+                    onTap = {
+                        viewModel.stopFollowing()
+                        scope.launch { camera.animate(CameraUpdateFactory.newLatLng(spot), 450) }
+                    },
+                    onHide = { hiddenMeetAt = meet.atMs },
+                    modifier = Modifier.padding(top = 10.dp, start = 12.dp, end = 12.dp),
+                )
             }
             Column(
                 Modifier.weight(1f).fillMaxWidth().padding(horizontal = 12.dp).padding(bottom = 104.dp + navigationBarBottom()),
@@ -344,6 +441,34 @@ fun TrackScreen(viewModel: TrackViewModel = hiltViewModel(), friendsViewModel: F
                     StatsCard(ui, viewModel, friendsUi.friends, now, friendsViewModel::openSheet, onStart = start)
                 }
             }
+        }
+        }
+
+        meetDraft?.let { spot ->
+            friendsUi.selectedCrew?.let { crew ->
+                MeetPointSheet(crew.name, onDismiss = { meetDraft = null }) { kind, minutes, done ->
+                    friendsViewModel.setMeet(crew.id, kind, minutes, spot.latitude, spot.longitude) { ok ->
+                        done(ok)
+                        if (ok) meetDraft = null
+                    }
+                }
+            }
+        }
+        if (confirmClearMeet) {
+            androidx.compose.material3.AlertDialog(
+                onDismissRequest = { confirmClearMeet = false },
+                title = { Text("Remove the meet point?", style = sb(22)) },
+                text = { Text("It disappears from everyone's map in the crew.", style = sb(16, FontWeight.SemiBold)) },
+                confirmButton = {
+                    androidx.compose.material3.TextButton(onClick = {
+                        friendsUi.selectedCrew?.id?.let(friendsViewModel::clearMeet)
+                        confirmClearMeet = false
+                    }) { Text("REMOVE", style = sb(17), color = Sb.Red) }
+                },
+                dismissButton = {
+                    androidx.compose.material3.TextButton(onClick = { confirmClearMeet = false }) { Text("CANCEL", style = sb(17), color = Sb.Charcoal) }
+                },
+            )
         }
     }
 }
@@ -767,6 +892,85 @@ private fun Buttons(ui: TrackUiState, viewModel: TrackViewModel, onStart: () -> 
                 },
                 style = sb(22).copy(color = Color.White), maxLines = 1,
                 autoSize = TextAutoSize.StepBased(minFontSize = 13.sp, maxFontSize = 22.sp),
+            )
+        }
+    }
+}
+
+/** Landscape bar, middle: altitude and crew before a ride; speed and the ride's numbers while recording. */
+@Composable
+private fun LandscapeTrackStats(ui: TrackUiState, friends: List<Friend>, now: Long, onCrew: () -> Unit) {
+    val s = ui.tracking
+    val units = ui.units
+    val altitude = s.current?.let { units.altitude(it.altitude) } ?: "--"
+    if (s.isTracking) {
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                PulsingDot()
+                Text(
+                    if (s.isPaused) "PAUSED" else units.duration(s.elapsedSeconds),
+                    style = sb(11, tracking = 0.04f, tabular = true), color = Sb.Red, maxLines = 1,
+                )
+            }
+            Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                val speed = if (s.isPaused) 0.0 else units.speedValue(s.currentSpeed)
+                Text("%.0f".format(speed), style = sb(40, FontWeight.ExtraBold, lineHeight = 0.95f, tabular = true), color = Sb.Charcoal)
+                Text(units.speedUnit, style = sb(13), color = Sb.Secondary, modifier = Modifier.padding(bottom = 5.dp))
+            }
+        }
+        LandscapeStat("DISTANCE", units.distance(s.distanceMeters), size = 20)
+        LandscapeStat("MAX SPEED", units.speed(s.maxSpeed), size = 20)
+        LandscapeStat("ALTITUDE", altitude, size = 20)
+    } else {
+        LandscapeStat("YOUR ALTITUDE", altitude)
+        val online = friends.count { it.hasPosition && lookOf(it, now) != Look.LAST_SEEN }
+        LandscapeStat(
+            "YOUR CREW", if (friends.isEmpty()) "INVITE" else "$online ONLINE",
+            modifier = Modifier
+                .semantics(mergeDescendants = true) {
+                    contentDescription = if (friends.isEmpty()) "Your crew, no crew, invite a friend" else "Your crew, $online online"
+                }
+                .clickable(onClick = onCrew),
+        )
+    }
+}
+
+/** Landscape bar, right: START TRACKING, or pause and STOP. */
+@Composable
+private fun LandscapeTrackButtons(ui: TrackUiState, viewModel: TrackViewModel, onStart: () -> Unit) {
+    val shape = RoundedCornerShape(18.dp)
+    val glow = Modifier.shadow(10.dp, shape, ambientColor = Sb.Red.copy(0.3f), spotColor = Sb.Red.copy(0.3f))
+    if (ui.tracking.isTracking) {
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Box(
+                Modifier.size(60.dp).clip(shape).background(Sb.LightGrey).clickable(onClick = viewModel::togglePause)
+                    .semantics { contentDescription = if (ui.tracking.isPaused) "Resume" else "Pause" },
+                contentAlignment = Alignment.Center,
+            ) { Text(if (ui.tracking.isPaused) "▶" else "❚❚", style = sb(20), color = Sb.GreyButtonText) }
+            Row(
+                Modifier.height(60.dp).then(glow).clip(shape).background(Sb.Red).clickable(onClick = viewModel::stop)
+                    .padding(horizontal = 18.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(Modifier.size(14.dp).clip(RoundedCornerShape(3.dp)).background(Color.White))
+                Text("STOP", style = sb(20), color = Color.White)
+            }
+        }
+    } else {
+        Row(
+            Modifier.height(60.dp).then(glow).clip(shape).background(Sb.Red).clickable(onClick = onStart)
+                .padding(horizontal = 22.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(Modifier.size(14.dp).clip(CircleShape).background(Color.White))
+            Text(
+                buildAnnotatedString {
+                    append("START TRACKING")
+                    withStyle(SpanStyle(fontSize = (12f / 20f).em)) { append(" · ${gpsStatus(ui)}") }
+                },
+                style = sb(20), color = Color.White, maxLines = 1,
             )
         }
     }

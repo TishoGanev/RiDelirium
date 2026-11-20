@@ -2,7 +2,7 @@
 // Ride Together API: accountless crews for the RiDelirium app.
 //
 //   POST   /v1/riders                {"id","name"}        -> 201 {"token"}      register this install
-//   PUT    /v1/riders/me             {"name"?,"sport"?}   -> 200 friend         change display name and/or sport (ski, board, bike); crew-mates are told at once
+//   PUT    /v1/riders/me             {"name"?,"sport"?}   -> 200 friend         change display name and/or sport (ski, board, bike, walk); crew-mates are told at once
 //   DELETE /v1/riders/me                                  -> 204                delete everything about me
 //   GET    /v1/crews                                      -> 200 [crew]         my crews (expired memberships are gone)
 //   POST   /v1/crews                 {"name"}             -> 201 crew           create a crew; I am in it until I leave
@@ -11,6 +11,9 @@
 //   POST   /v1/crews/join            {"code","until"?}    -> 200 crew           join; until = epoch seconds (at most 30 days ahead), none = until I leave
 //   PUT    /v1/crews/{id}/membership {"until"?}           -> 200 crew           change how long I stay
 //   DELETE /v1/crews/{id}/membership                      -> 204                leave this crew
+//   PUT    /v1/crews/{id}/meet       {"lat","lon","kind","inMinutes"} -> 200 crew  drop the crew's meet point (kind: lift, hut, parking, here;
+//                                                                                inMinutes 0..120); the others get a push
+//   DELETE /v1/crews/{id}/meet                            -> 200 crew           clear it
 //   GET    /v1/friends                                    -> 200 [friend]       everyone I share an active crew with (for older builds)
 //   GET    /v1/riders/recent                              -> 200 [{id,displayName,initials,sport}]  people I rode with in the last 30 days, in none of my crews now
 //   POST   /v1/riders/{id}/invite    {"crewId"}           -> 204                push "invites you to <crew>" with that crew's code
@@ -30,7 +33,9 @@
 //
 // friend = {"id","displayName","initials","sport","isRiding"} plus "lat","lon","speedKmh","ageSeconds" (seconds since the
 // last heartbeat) while a recent position is known.
-// crew = {"id","name","code","ownerId","myExpiresAt","members":[friend + "joinedAt","expiresAt"]}; times are epoch
+// crew = {"id","name","code","ownerId","myExpiresAt","meet","members":[friend + "joinedAt","expiresAt"]}; times are epoch
+// seconds. meet = null or {"lat","lon","kind","at","byId","byName"}: one meet point per crew, gone MEET_GRACE after "at".
+//
 // seconds, null expiresAt means until they leave. Everything but registering needs "Authorization: Bearer <token>".
 // Needs PHP 8.0+ with PDO MySQL. See schema.sql for what is stored.
 
@@ -40,12 +45,14 @@ ini_set('serialize_precision', '-1'); // shortest exact float, so 42.69771 stays
 header('Content-Type: application/json');
 header('Cache-Control: no-store');
 
-const MAX_CREW_MEMBERS = 20;
+const MAX_CREW_MEMBERS = 3; // first release: free crews only; CREW+ (10) and CLUB (20) come with paid passes
 const MAX_CREWS_PER_RIDER = 10;
 const MAX_STAY_DAYS = 30; // the longest "until" a joiner can pick
 const RIDING_TTL = 90;
 const WAIT_TTL = 300; // seconds a "wait for me" stays open before it counts as unanswered
 const POSITION_TTL = 600; // how long a friend can still see where you were last
+const MEET_KINDS = ['lift', 'hut', 'parking', 'here'];
+const MEET_GRACE = 1800; // a meet point stays this many seconds after its time, then disappears
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
 $config = file_exists(__DIR__ . '/../config.php') ? require __DIR__ . '/../config.php' : [];
@@ -141,8 +148,8 @@ function cleanName(mixed $raw): string {
 }
 
 function cleanSport(mixed $raw): string {
-    if (!is_string($raw) || !in_array($raw, ['ski', 'board', 'bike'], true)) {
-        fail(400, 'Sport must be ski, board or bike');
+    if (!is_string($raw) || !in_array($raw, ['ski', 'board', 'bike', 'walk'], true)) {
+        fail(400, 'Sport must be ski, board, bike or walk');
     }
     return $raw;
 }
@@ -281,7 +288,28 @@ function crewJson(array $crew, string $me): array {
         'code' => $crew['code'],
         'ownerId' => $crew['owner_id'],
         'myExpiresAt' => $mine,
+        'meet' => meetJson($crew),
         'members' => $members,
+    ];
+}
+
+/** The crew's meet point, or null when there is none or its time is long past. */
+function meetJson(array $crew): ?array {
+    if (($crew['meet_lat'] ?? null) === null || ($crew['meet_at'] ?? null) === null) {
+        return null;
+    }
+    $at = epoch($crew['meet_at']);
+    if ($at === null || $at + MEET_GRACE < time()) {
+        return null;
+    }
+    $by = q('SELECT name FROM riders WHERE id = ?', [$crew['meet_by']])->fetchColumn();
+    return [
+        'lat' => (float)$crew['meet_lat'],
+        'lon' => (float)$crew['meet_lon'],
+        'kind' => $crew['meet_kind'],
+        'at' => $at,
+        'byId' => $crew['meet_by'],
+        'byName' => $by === false ? null : $by,
     ];
 }
 
@@ -557,6 +585,47 @@ try {
             leaveCrew($crew, $me);
         }
         respond(204);
+    }
+
+    // One meet point per crew: dropping a new one replaces the old; everyone else is told.
+    if (preg_match('#^/crews/([0-9a-f]{16})/meet$#', $route, $r) && $method === 'PUT') {
+        $crew = myCrew($r[1], $me['id']);
+        rateLimit('meet', $me['id'], 20, 3600);
+        $in = body();
+        $lat = $in['lat'] ?? null;
+        $lon = $in['lon'] ?? null;
+        $kind = $in['kind'] ?? null;
+        $minutes = $in['inMinutes'] ?? 0;
+        if (!is_numeric($lat) || !is_numeric($lon) || abs((float)$lat) > 90 || abs((float)$lon) > 180) {
+            fail(400, 'lat and lon are required');
+        }
+        if (!is_string($kind) || !in_array($kind, MEET_KINDS, true)) {
+            fail(400, 'kind must be lift, hut, parking or here');
+        }
+        if (!is_numeric($minutes) || (int)$minutes < 0 || (int)$minutes > 120) {
+            fail(400, 'inMinutes must be 0 to 120');
+        }
+        $minutes = (int)$minutes;
+        q('UPDATE crews SET meet_lat = ?, meet_lon = ?, meet_kind = ?, meet_at = UTC_TIMESTAMP() + INTERVAL ? MINUTE, meet_by = ? WHERE id = ?',
+            [(float)$lat, (float)$lon, $kind, $minutes, $me['id'], $crew['id']]);
+        $crew = q('SELECT * FROM crews WHERE id = ?', [$crew['id']])->fetch();
+        $others = q('SELECT rider_id FROM crew_members m WHERE m.crew_id = ? AND m.rider_id <> ? AND ' . active('m'), [$crew['id'], $me['id']])->fetchAll(PDO::FETCH_COLUMN);
+        if ($others) {
+            afterResponse(function () use ($others, $me, $crew, $kind, $minutes) {
+                foreach ($others as $other) {
+                    notifyMeet($other, $me['name'], $kind, $minutes, $crew['name'], $crew['id']);
+                }
+            });
+        }
+        respond(200, crewJson($crew, $me['id']));
+    }
+
+    if (preg_match('#^/crews/([0-9a-f]{16})/meet$#', $route, $r) && $method === 'DELETE') {
+        $crew = myCrew($r[1], $me['id']);
+        q('UPDATE crews SET meet_lat = NULL, meet_lon = NULL, meet_kind = NULL, meet_at = NULL, meet_by = NULL WHERE id = ?', [$crew['id']]);
+        $crew = q('SELECT * FROM crews WHERE id = ?', [$crew['id']])->fetch();
+        afterResponse(fn () => notifyCrewChanged($me['id'], 'meet'));
+        respond(200, crewJson($crew, $me['id']));
     }
 
     // People I rode with in the last 30 days who are not in my crew now.

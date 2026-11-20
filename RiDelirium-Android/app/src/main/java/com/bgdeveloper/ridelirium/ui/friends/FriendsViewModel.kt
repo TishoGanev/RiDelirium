@@ -6,7 +6,7 @@ import com.bgdeveloper.ridelirium.data.SettingsRepository
 import com.bgdeveloper.ridelirium.domain.Units
 import com.bgdeveloper.ridelirium.friends.Crew
 import com.bgdeveloper.ridelirium.friends.Friend
-import com.bgdeveloper.ridelirium.friends.Stay
+import java.time.ZonedDateTime
 import com.bgdeveloper.ridelirium.friends.FriendsRepository
 import com.bgdeveloper.ridelirium.friends.FriendsState
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -49,12 +49,12 @@ class FriendsViewModel @Inject constructor(
         viewModelScope.launch { repository.preview(text) }
     }
 
-    fun confirmJoin(stay: Stay) {
-        viewModelScope.launch { repository.confirmJoin(stay) }
+    fun confirmJoin(until: ZonedDateTime) {
+        viewModelScope.launch { repository.confirmJoin(until) }
     }
 
-    fun setStay(crewId: String, stay: Stay) {
-        viewModelScope.launch { repository.setStay(crewId, stay) }
+    fun setStay(crewId: String, until: ZonedDateTime) {
+        viewModelScope.launch { repository.setStay(crewId, until) }
     }
 
     fun createCrew(name: String, done: (Crew?) -> Unit) {
@@ -63,6 +63,14 @@ class FriendsViewModel @Inject constructor(
 
     fun renameCrew(id: String, name: String) {
         viewModelScope.launch { repository.renameCrew(id, name) }
+    }
+
+    fun setMeet(crewId: String, kind: com.bgdeveloper.ridelirium.friends.MeetKind, inMinutes: Int, latitude: Double, longitude: Double, done: (Boolean) -> Unit) {
+        viewModelScope.launch { done(repository.setMeet(crewId, kind, inMinutes, latitude, longitude)) }
+    }
+
+    fun clearMeet(crewId: String) {
+        viewModelScope.launch { repository.clearMeet(crewId) }
     }
 
     fun askToWait(friendId: String, done: (Boolean) -> Unit) {

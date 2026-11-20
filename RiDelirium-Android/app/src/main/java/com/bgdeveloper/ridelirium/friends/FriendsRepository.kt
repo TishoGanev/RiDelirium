@@ -1,5 +1,6 @@
 package com.bgdeveloper.ridelirium.friends
 
+import java.time.ZonedDateTime
 import android.content.Context
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ProcessLifecycleOwner
@@ -172,16 +173,19 @@ class FriendsRepository @Inject constructor(
 
     /** Remembers this phone's FCM token and tells the server, so it can send crew and wait alerts. */
     fun onPushToken(fcmToken: String) {
-        prefs.edit().putString("fcmToken", fcmToken).putBoolean("fcmSent", false).apply()
+        prefs.edit().putString("fcmToken", fcmToken).apply()
         scope.launch { registerPush() }
     }
 
-    /** Sends the stored FCM token to the server once; retried on the next launch or name change when it fails. */
+    /**
+     * Sends this phone's FCM token to the server on every launch and name change, like iOS does. Sending it only once
+     * lost push for good whenever the server dropped the device row (a rejected send, a reset database).
+     */
     private suspend fun registerPush() {
         if (!api.isConfigured || name == null || !PushSetup.isConfigured) return
-        val fcm = prefs.getString("fcmToken", null) ?: PushSetup.currentToken()?.also { prefs.edit().putString("fcmToken", it).apply() } ?: return
-        if (prefs.getBoolean("fcmSent", false)) return
-        runCatching { authorized { api.registerPush(it, fcm) } }.onSuccess { prefs.edit().putBoolean("fcmSent", true).apply() }
+        val fcm = PushSetup.currentToken()?.also { prefs.edit().putString("fcmToken", it).apply() }
+            ?: prefs.getString("fcmToken", null) ?: return
+        runCatching { authorized { api.registerPush(it, fcm) } }
     }
 
     /** The notification's "OK, waiting" button. */
@@ -344,13 +348,13 @@ class FriendsRepository @Inject constructor(
 
     fun cancelJoin() = _state.update { it.copy(joinPreview = null, joinError = null) }
 
-    /** Step two: join the previewed crew for [stay]. */
-    suspend fun confirmJoin(stay: Stay) {
+    /** Step two: join the previewed crew, sharing my location until [until]. */
+    suspend fun confirmJoin(until: ZonedDateTime) {
         val preview = _state.value.joinPreview ?: return
         if (_state.value.isJoining) return
         _state.update { it.copy(isJoining = true, joinError = null) }
         try {
-            val crew = authorized { api.joinCrew(it, preview.code, stay.untilEpochSeconds()) }
+            val crew = authorized { api.joinCrew(it, preview.code, Stay.clamp(until).toEpochSecond()) }
             _state.update { s ->
                 s.copy(crews = listOf(crew) + s.crews.filter { it.id != crew.id }, joinPreview = null, justJoined = crew, offline = false)
             }
@@ -371,9 +375,22 @@ class FriendsRepository @Inject constructor(
         }
     }
 
-    /** Changes how long you stay in [crewId]. */
-    suspend fun setStay(crewId: String, stay: Stay) {
-        runCatching { authorized { api.setStay(it, crewId, stay.untilEpochSeconds()) } }
+    /** Changes when you stop sharing your location with [crewId]. */
+    suspend fun setStay(crewId: String, until: ZonedDateTime) {
+        runCatching { authorized { api.setStay(it, crewId, Stay.clamp(until).toEpochSecond()) } }
+            .onSuccess { crew -> _state.update { s -> s.copy(crews = s.crews.map { if (it.id == crew.id) crew else it }) } }
+            .onFailure { fail(NO_SIGNAL) }
+    }
+
+    /** Drops [crewId]'s meet point; everyone else in the crew is notified. False when the server can't be reached. */
+    suspend fun setMeet(crewId: String, kind: MeetKind, inMinutes: Int, latitude: Double, longitude: Double): Boolean =
+        runCatching { authorized { api.setMeet(it, crewId, latitude, longitude, kind, inMinutes) } }
+            .onSuccess { crew -> _state.update { s -> s.copy(crews = s.crews.map { if (it.id == crew.id) crew else it }) } }
+            .isSuccess
+
+    /** Takes the meet point away for the whole crew. */
+    suspend fun clearMeet(crewId: String) {
+        runCatching { authorized { api.clearMeet(it, crewId) } }
             .onSuccess { crew -> _state.update { s -> s.copy(crews = s.crews.map { if (it.id == crew.id) crew else it }) } }
             .onFailure { fail(NO_SIGNAL) }
     }
@@ -482,6 +499,6 @@ class FriendsRepository @Inject constructor(
         const val NO_NAME = "Add your name first to ride together."
         const val NO_SIGNAL = "We are offline. Check your signal and try again."
         const val TOO_MANY_CREWS = "You are in 10 crews already. Leave one first."
-        const val CREW_FULL = "That crew is full, or you are in 10 crews already."
+        const val CREW_FULL = "That crew is full (3 riders), or you are in 10 crews already."
     }
 }

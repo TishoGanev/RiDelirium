@@ -11,6 +11,8 @@ RUN printf 'ServerName ridersapi\nServerTokens Prod\nServerSignature Off\nRemote
 RUN cp "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"
 
 COPY api/ /var/www/html/
+# Apache runs as www-data: make the API readable whatever modes the files had on the Mac.
+RUN chmod -R a+rX /var/www/html
 
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
     CMD curl -fs -o /dev/null -w '%{http_code}' http://localhost/v1/health | grep -qE '^(200|401|404)$' || exit 1

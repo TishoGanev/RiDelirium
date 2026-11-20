@@ -1,5 +1,9 @@
 package com.bgdeveloper.ridelirium.ui.settings
 
+import com.bgdeveloper.ridelirium.ui.LandscapeBar
+import com.bgdeveloper.ridelirium.ui.LandscapeMetrics
+import com.bgdeveloper.ridelirium.ui.isLandscape
+import com.bgdeveloper.ridelirium.ui.landscapePadding
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
 import com.bgdeveloper.ridelirium.friends.Friend
@@ -61,6 +65,12 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bgdeveloper.ridelirium.BuildConfig
 import com.bgdeveloper.ridelirium.R
 import com.bgdeveloper.ridelirium.ui.Chevron
+import com.bgdeveloper.ridelirium.ui.SportGlyph
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import com.bgdeveloper.ridelirium.ui.statusBarTop
 import com.bgdeveloper.ridelirium.ui.theme.Sb
 import com.bgdeveloper.ridelirium.ui.theme.sb
@@ -101,16 +111,32 @@ fun SettingsScreen(onOpenAbout: () -> Unit, viewModel: SettingsViewModel = hiltV
         if (!granted) openNotificationSettings()
     }
 
-    Column(Modifier.fillMaxSize().background(Color.White)) {
+    // Sideways: a small title, the same rows in one rounded card, and the tabs in the bottom bar (Landscape.kt).
+    val landscape = isLandscape()
+    val landscapePad = landscapePadding()
+    Column(
+        Modifier.fillMaxSize().background(if (landscape) Color(0xFFF4F2F0) else Color.White)
+            .then(if (landscape) Modifier.padding(landscapePad) else Modifier),
+    ) {
+        if (landscape) {
+            Box(Modifier.height(LandscapeMetrics.GearSize).padding(bottom = 4.dp), contentAlignment = Alignment.CenterStart) {
+                Text("SETTINGS", style = sb(22, FontWeight.ExtraBold), color = Sb.Charcoal)
+            }
+        } else {
         Column(
             Modifier.fillMaxWidth().background(Sb.Red)
                 .padding(top = statusBarTop() + 16.dp, start = 20.dp, end = 20.dp, bottom = 24.dp),
         ) {
             Text("SETTINGS", style = sb(40, FontWeight.ExtraBold, lineHeight = 1f), color = Color.White)
         }
+        }
 
         // The rows scroll under the fixed header; the bottom padding clears the floating tab bar.
-        Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(bottom = 110.dp)) {
+        Column(
+            Modifier.weight(1f).fillMaxWidth()
+                .then(if (landscape) Modifier.clip(RoundedCornerShape(22.dp)).background(Color.White) else Modifier)
+                .verticalScroll(rememberScrollState()).padding(bottom = if (landscape) 0.dp else 110.dp),
+        ) {
         SettingsRow {
             Box(Modifier.size(40.dp).clip(CircleShape).background(Sb.Charcoal), contentAlignment = Alignment.Center) {
                 Text(initials, style = sb(14), color = Color.White)
@@ -171,6 +197,10 @@ fun SettingsScreen(onOpenAbout: () -> Unit, viewModel: SettingsViewModel = hiltV
             Chevron(Modifier.padding(end = 4.dp), size = 10.dp)
         }
         }
+        if (landscape) {
+            Box(Modifier.height(10.dp))
+            LandscapeBar { Text("SETTINGS", style = sb(14), color = Sb.Secondary) }
+        }
     }
 
     if (editing) {
@@ -195,7 +225,7 @@ private fun SportRow(sport: Sport, me: Friend?, metric: Boolean, onSport: (Sport
         Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text("I RIDE", style = sb(18), color = Sb.Charcoal, modifier = Modifier.weight(1f))
-                SegmentedControl(Sport.entries.map { it.title to it }, sport, onSport)
+                SportPicker(sport, onSport)
             }
             Row(
                 Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Sb.MapBackground).padding(horizontal = 14.dp, vertical = 12.dp),
@@ -209,6 +239,27 @@ private fun SportRow(sport: Sport, me: Friend?, metric: Boolean, onSport: (Sport
             }
         }
         Box(Modifier.fillMaxWidth().height(1.dp).background(Sb.Divider))
+    }
+}
+
+/** Four sports as pictograms only, so the row fits beside "I RIDE" without wrapping. */
+@Composable
+private fun SportPicker(selection: Sport, onSelect: (Sport) -> Unit) {
+    val shape = RoundedCornerShape(10.dp)
+    Row(Modifier.clip(shape).border(1.5.dp, Sb.Charcoal, shape)) {
+        Sport.entries.forEach { sport ->
+            val selected = sport == selection
+            Box(
+                Modifier
+                    .width(52.dp).height(44.dp)
+                    .background(if (selected) Sb.Charcoal else Color.White)
+                    .clickable(role = Role.RadioButton) { onSelect(sport) }
+                    .semantics { contentDescription = sport.title; this.selected = selected },
+                contentAlignment = Alignment.Center,
+            ) {
+                SportGlyph(sport, if (selected) Color.White else Sb.Charcoal, Modifier.size(24.dp))
+            }
+        }
     }
 }
 

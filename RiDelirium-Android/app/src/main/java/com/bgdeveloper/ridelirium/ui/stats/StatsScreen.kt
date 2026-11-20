@@ -49,6 +49,24 @@ import com.bgdeveloper.ridelirium.domain.SessionSummary
 import com.bgdeveloper.ridelirium.ui.Chevron
 import com.bgdeveloper.ridelirium.ui.HeroNumber
 import com.bgdeveloper.ridelirium.ui.statusBarTop
+import com.bgdeveloper.ridelirium.ui.LandscapeBar
+import com.bgdeveloper.ridelirium.ui.LandscapeMetrics
+import com.bgdeveloper.ridelirium.ui.LandscapeStat
+import com.bgdeveloper.ridelirium.ui.isLandscape
+import com.bgdeveloper.ridelirium.ui.landscapePadding
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.calculateStartPadding
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalLayoutDirection
 import com.bgdeveloper.ridelirium.ui.theme.Sb
 import com.bgdeveloper.ridelirium.ui.theme.sb
 import java.time.format.TextStyle
@@ -60,6 +78,9 @@ fun StatsScreen(onOpenDay: (Int) -> Unit, viewModel: StatsViewModel = hiltViewMo
     var pendingDelete by remember { mutableStateOf<SessionSummary?>(null) }
     var showProgress by remember { mutableStateOf(false) }
 
+    if (isLandscape()) {
+        LandscapeStats(ui, viewModel, onOpenDay, onDelete = { pendingDelete = it }, onProgress = { showProgress = true })
+    } else {
     Column(Modifier.fillMaxSize().background(Color.White)) {
         Header(ui)
         RangeBar(ui, onRange = viewModel::setRange, onProgress = { showProgress = true })
@@ -70,6 +91,7 @@ fun StatsScreen(onOpenDay: (Int) -> Unit, viewModel: StatsViewModel = hiltViewMo
         } else {
             RideList(ui, viewModel, onOpenDay, onDelete = { pendingDelete = it })
         }
+    }
     }
 
     if (showProgress) {
@@ -86,6 +108,140 @@ fun StatsScreen(onOpenDay: (Int) -> Unit, viewModel: StatsViewModel = hiltViewMo
             },
             dismissButton = { TextButton(onClick = { pendingDelete = null }) { Text("Cancel") } },
         )
+    }
+}
+
+/** Sideways: ride cards you swipe through, the period's totals in the bottom bar (Landscape.kt). */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun LandscapeStats(
+    ui: StatsUiState,
+    viewModel: StatsViewModel,
+    onOpen: (Int) -> Unit,
+    onDelete: (SessionSummary) -> Unit,
+    onProgress: () -> Unit,
+) {
+    val pad = landscapePadding()
+    val dir = LocalLayoutDirection.current
+    val start = pad.calculateStartPadding(dir)
+    val end = pad.calculateEndPadding(dir)
+    Column(
+        Modifier.fillMaxSize().background(Color(0xFFF4F2F0))
+            .padding(top = pad.calculateTopPadding(), bottom = pad.calculateBottomPadding()),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Row(
+            Modifier.fillMaxWidth().padding(start = start, end = end + LandscapeMetrics.GearSize + 10.dp).height(LandscapeMetrics.GearSize),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Text("YOUR RIDES", style = sb(22, FontWeight.ExtraBold), color = Sb.Charcoal, modifier = Modifier.padding(end = 6.dp))
+            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                StatsRange.entries.forEach { option ->
+                    val selected = option == ui.range
+                    Box(
+                        Modifier.height(30.dp).clip(CircleShape)
+                            .background(if (selected) Sb.Red else Color.White)
+                            .clickable { viewModel.setRange(option) }
+                            .padding(horizontal = 12.dp),
+                        contentAlignment = Alignment.Center,
+                    ) { Text(option.title, style = sb(12, tracking = 0.04f), color = if (selected) Color.White else Sb.GreyButtonText) }
+                }
+            }
+        }
+        if (ui.sessions.isEmpty()) {
+            Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                Text(if (ui.hasAnyRides) "NO RIDES IN THIS PERIOD" else "NO RIDES YET", style = sb(18, tracking = 0.04f), color = Sb.Secondary)
+            }
+        } else {
+            LazyRow(
+                Modifier.weight(1f).fillMaxWidth(),
+                contentPadding = PaddingValues(start = start, end = end),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                items(ui.sessions, key = { it.session }) { session ->
+                    LaunchedEffect(session.placeKey) { viewModel.resolvePlace(session) }
+                    RideCard(
+                        session, ui,
+                        Modifier.combinedClickable(onClick = { onOpen(session.session) }, onLongClick = { onDelete(session) }),
+                    )
+                }
+            }
+        }
+        val header = ui.header
+        LandscapeBar(
+            Modifier.padding(start = start, end = end),
+            trailing = {
+                if (ui.sessions.size >= 2) {
+                    Box(
+                        Modifier.height(60.dp).clip(RoundedCornerShape(18.dp)).background(Sb.LightGrey)
+                            .clickable(onClick = onProgress).padding(horizontal = 18.dp),
+                        contentAlignment = Alignment.Center,
+                    ) { Text("INSIGHTS", style = sb(17), color = Sb.Red) }
+                }
+            },
+        ) {
+            LandscapeStat(header.title, "${header.days} ${if (header.days == 1) "DAY" else "DAYS"}", labelColor = Sb.Red)
+            LandscapeStat("RIDDEN", ui.units.distance(header.distanceMeters))
+            LandscapeStat("TOP SPEED", ui.units.speed(header.topSpeed))
+        }
+    }
+}
+
+@Composable
+private fun RideCard(session: SessionSummary, ui: StatsUiState, modifier: Modifier) {
+    val date = session.startDate
+    val shape = RoundedCornerShape(22.dp)
+    Column(
+        Modifier.width(176.dp).height(210.dp).clip(shape).background(Color.White)
+            .border(1.dp, Color(0xFFE3E3E3), shape).then(modifier),
+    ) {
+        RouteSketch(session, Modifier.fillMaxWidth().height(92.dp).background(Sb.MapBackground))
+        Column(Modifier.padding(horizontal = 12.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+            Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text("%02d".format(date.dayOfMonth), style = sb(26, FontWeight.ExtraBold, tabular = true), color = Sb.Charcoal)
+                Text(
+                    date.month.getDisplayName(TextStyle.SHORT, androidx.compose.ui.text.intl.Locale.current.platformLocale).uppercase(),
+                    style = sb(12), color = Sb.Red, modifier = Modifier.padding(bottom = 3.dp),
+                )
+                Text("${date.year}", style = sb(12, FontWeight.SemiBold), color = Sb.Secondary, modifier = Modifier.padding(bottom = 3.dp))
+            }
+            Text(ui.placeName(session), style = sb(16), color = Sb.Charcoal, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(
+                "${ui.units.distance(session.distance)} · ${ui.units.speed(session.maxSpeed)}",
+                style = sb(13, FontWeight.SemiBold, tabular = true), color = Sb.Secondary,
+                maxLines = 1, overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+}
+
+/** The ride's route drawn flat, scaled to fit, for the landscape ride cards. */
+@Composable
+private fun RouteSketch(session: SessionSummary, modifier: Modifier) {
+    val points = remember(session.placeKey, session.points.size) {
+        val all = session.points
+        val step = maxOf(1, all.size / 400)
+        all.filterIndexed { i, _ -> i % step == 0 || i == all.size - 1 }.map { it.lat to it.lon }
+    }
+    Canvas(modifier) {
+        if (points.size < 2) return@Canvas
+        val minLat = points.minOf { it.first }; val maxLat = points.maxOf { it.first }
+        val minLon = points.minOf { it.second }; val maxLon = points.maxOf { it.second }
+        val inset = 14.dp.toPx()
+        val w = size.width - inset * 2; val h = size.height - inset * 2
+        // Longitude degrees shrink towards the poles; keep the shape's proportions.
+        val lonScale = kotlin.math.cos((minLat + maxLat) / 2 * Math.PI / 180)
+        val spanX = maxOf((maxLon - minLon) * lonScale, 1e-9); val spanY = maxOf(maxLat - minLat, 1e-9)
+        val scale = minOf(w / spanX, h / spanY)
+        val ox = inset + (w - spanX * scale) / 2; val oy = inset + (h - spanY * scale) / 2
+        val path = Path()
+        points.forEachIndexed { i, (lat, lon) ->
+            val x = (ox + (lon - minLon) * lonScale * scale).toFloat()
+            val y = (oy + (maxLat - lat) * scale).toFloat()
+            if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
+        }
+        drawPath(path, Sb.Red, style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
     }
 }
 

@@ -8,7 +8,8 @@ import java.net.URLEncoder
 enum class Sport(val key: String, val title: String, val activity: String) {
     SKI("ski", "SKI", "SKIING"),
     BOARD("board", "BOARD", "SNOWBOARDING"),
-    BIKE("bike", "BIKE", "BIKING");
+    BIKE("bike", "BIKE", "BIKING"),
+    WALK("walk", "WALK", "WALKING");
 
     companion object {
         fun fromKey(key: String?): Sport? = entries.firstOrNull { it.key == key }

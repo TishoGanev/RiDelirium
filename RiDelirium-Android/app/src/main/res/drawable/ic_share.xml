@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Share: an arrow leaving a tray, like the iOS share icon. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp" android:viewportWidth="18" android:viewportHeight="20">
+    <path android:strokeColor="#353535" android:strokeWidth="2.2" android:strokeLineCap="round" android:strokeLineJoin="round"
+        android:pathData="M9,1v12M4.5,5.5L9,1l4.5,4.5M2,10v8h14v-8" />
+</vector>
