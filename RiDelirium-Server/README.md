@@ -37,7 +37,7 @@ the top of `api/index.php`.
 5. Check: `curl -s -X POST https://your-host/v1/riders -d '{"id":"<uuid>","name":"Test"}'` returns a token.
 
 ## What is stored
-Per rider: random id, sha256 of the token, display name, initials, what they ride (ski, board or bike), a "riding until" time and the last
+Per rider: random id, sha256 of the token, display name, initials, what they ride (ski, board, bike or walk), a "riding until" time and the last
 day seen. Plus invite codes, friend pairs, and salted-hash rate-limit counters (deleted after a day).
 No email, phone, device info, IP address, ride data or location history. While a rider is sharing with friends, their latest position (lat/lon) is kept, overwritten on every update, shown only to their friends and cleared shortly after the ride ends. Riders unseen for 30 days are
 deleted, and `DELETE /v1/riders/me` removes everything about a rider immediately.
@@ -64,6 +64,17 @@ The app's API base URL becomes `https://ridersapi.sportco.net/v1`.
 Debug 502: `docker logs ridersapi`, `docker exec nginx-proxy-manager curl -v http://ridersapi/v1/friends`.
 Daily purge: QTS cron, `docker exec ridersapi php purge.php`.
 MariaDB must accept TCP from the Docker bridge; the `rider` user needs host `%` (or `172.%`).
+
+## Website on the QNAP
+
+`RiDelirium-Web/deploy.sh` copies the site to `/share/Container/rideliriumweb/` and runs the `rideliriumweb`
+nginx container on the `proxy` network. The password is read from `RiDelirium-Server/creds.txt` when present.
+
+In NPM add one proxy host with the names `ridelirium.app`, `www.ridelirium.app`, `ridelirium.com`,
+`www.ridelirium.com`: scheme `http`, host `rideliriumweb`, port `80`. SSL tab: request one Let's Encrypt
+certificate for all four names, turn on Force SSL and HTTP/2. nginx sends every name except `ridelirium.app`
+to `https://ridelirium.app` (301). DNS: A records for all four names point to the home public IP, and the router
+forwards ports 80 and 443 to NPM.
 
 ## Push notifications
 

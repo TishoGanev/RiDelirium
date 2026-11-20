@@ -13,7 +13,7 @@ CREATE TABLE riders (
     token_hash   CHAR(64)     NOT NULL UNIQUE,        -- sha256 of the access token; the token itself is not stored
     name         VARCHAR(30)  NOT NULL,
     initials     VARCHAR(2)   NOT NULL,
-    sport        ENUM('ski','board','bike') NOT NULL DEFAULT 'board',  -- what they ride; shown on their map tag
+    sport        ENUM('ski','board','bike','walk') NOT NULL DEFAULT 'board',  -- what they ride; shown on their map tag
     riding_until DATETIME     NULL,                   -- UTC; set by the app's heartbeat, expires by itself
     lat          DECIMAL(8,5) NULL,                   -- latest position while riding; NULL otherwise
     lon          DECIMAL(8,5) NULL,
@@ -29,7 +29,12 @@ CREATE TABLE crews (
     name       VARCHAR(30) NOT NULL,
     code       CHAR(8)     NOT NULL UNIQUE,             -- what the QR code and invite link carry
     owner_id   CHAR(36)    NOT NULL,                    -- passes to the oldest member when the owner leaves
-    created_at DATETIME    NOT NULL                     -- UTC
+    created_at DATETIME    NOT NULL,                    -- UTC
+    meet_lat   DOUBLE      NULL,                        -- the crew's meet point, set by any member; NULL = none
+    meet_lon   DOUBLE      NULL,
+    meet_kind  VARCHAR(10) NULL,                        -- lift, hut, parking or here
+    meet_at    DATETIME    NULL,                        -- UTC, when to meet; hidden 30 minutes after
+    meet_by    CHAR(36)    NULL                         -- who dropped it
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Who is in which crew, and until when. NULL expires_at means "until I leave". Riders see each other only while

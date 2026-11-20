@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleIconName</key>
+	<string>AppIcon</string>
+	<key>NSHealthShareUsageDescription</key>
+	<string>RiDelirium shows your heart rate while you ride.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>RiDelirium saves your snowboarding sessions to Health.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>RiDelirium uses the watch compass so a friend's arrow points the way to them.</string>
+	<key>NSMotionUsageDescription</key>
+	<string>RiDelirium measures the peak g-force of your ride.</string>
+	<key>WKBackgroundModes</key>
+	<array>
+		<string>workout-processing</string>
+	</array>
+</dict>
+</plist>

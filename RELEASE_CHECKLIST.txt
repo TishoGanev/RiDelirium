@@ -1,0 +1,85 @@
+RIDELIRIUM 2.0: WHAT IS LEFT BEFORE THE APP STORE AND GOOGLE PLAY
+==================================================================
+
+Lists only what is still open. When an item is done, move it to the DONE log at the bottom
+with the date. Checked from code, configs and the live endpoints; no build was made and
+nothing was run on a device.
+
+Last updated: 2026-11-20
+
+Status words:  OPEN = must be done, CHECK = verify, it may already be fine,
+               DECIDE = needs a product decision, OPTIONAL = nice to have.
+Store setup steps (bundle ids, review notes, cron) are in RiDelirium-iOS/RiDelirium/DISTRIBUTE.md.
+
+
+BOTH STORES (BLOCKERS)
+----------------------
+B1  OPEN      Live privacy page (ridelirium.app/privacy) still shows "YOUR NAME OR COMPANY"
+              4 times and the yellow "Before you publish" box (privacy.html:35). Fill in
+              owner name and country, remove the box. The same footer placeholder is in
+              support.html:101 and index.html:254. Redeploy with RiDelirium-Web/deploy.sh.
+B2  CHECK     support@ridelirium.app (used on the privacy page) actually receives mail.
+B3  OPEN      Privacy policy does not mention Firebase Crashlytics, which both apps ship
+              (RiDeliriumApp.swift:17, Android build.gradle.kts). Add Firebase/Crashlytics
+              to the third-party list, and crash data + device ID to what is collected.
+B4  OPEN      No in-app delete of data. The server has DELETE /v1/riders/me but neither app
+              calls it. Apple 5.1.1(v) and Play's account deletion policy likely treat the
+              rider name + token as an account. Add "Delete my Ride Together data" to
+              Settings on iOS and Android.
+B5  OPEN      Uncommitted work on release/2.0: 25+ modified files and new files (Android crews,
+              StayPicker, MeetPoint, server schema and push). Migrations 002/003 are deleted
+              but the server README still says to run migrations. Commit, deploy the server,
+              and make sure the production DB matches api/schema.sql before cutting builds.
+
+iOS
+---
+I1  OPEN      App Privacy answers in DISTRIBUTE.md are stale: they list Name, User ID and
+              Precise Location. PrivacyInfo.xcprivacy also declares Device ID, and Crashlytics
+              adds Crash Data. Declare both in App Store Connect and update DISTRIBUTE.md.
+I2  OPEN      Review notes in DISTRIBUTE.md describe "MY CODE" and "phones nearby connect
+              directly". Nearby join was removed on 2026-11-13 and crews replaced the old
+              flow. Rewrite them around crews and the code join.
+I3  OPTIONAL  Subtitle, keywords and NSHealthUpdateUsageDescription say snowboard only. The
+              app now does ski, bike and walk too.
+I4  OPEN      Screenshots: iPhone 6.9" (1320x2868) and 6.5", Apple Watch (largest size).
+I5  OPEN      TestFlight on a real device: record a ride, join a crew by code, watch app,
+              Live Activity. Then submit.
+
+              Already fine: app, watch and widget all MARKETING_VERSION 2.0.0, build 103,
+              API_HOST set, live apple-app-site-association returns 200 and is correct.
+
+ANDROID
+-------
+A1  OPEN      No release signing config and no upload keystore. Set up an upload key with
+              Play App Signing. Bump versionCode (now 2) on every upload.
+A2  OPEN      ridersapi.sportco.net/.well-known/assetlinks.json returns 404 because
+              ANDROID_CERT_SHA256 is not set, so invite links do not open the Android app.
+              After the first upload, put the Play app-signing SHA-256 in the server .env.
+A3  CHECK     Maps API key: if it is restricted by package + SHA-1, add the Play app-signing
+              SHA-1 in Google Cloud, or the map is blank in store installs.
+A4  DECIDE    FACEBOOK_APP_ID is empty in local.properties, so Facebook Story share fails
+              (StoryShare.kt:15). Get a Meta app id or hide the Facebook target.
+A5  OPEN      "SEND TEST NOTIFICATION" shows in release builds (SettingsScreen.kt:190).
+              Gate it behind BuildConfig.DEBUG. Same as G2 in IOS_ANDROID_DIFF.txt.
+A6  OPTIONAL  R8 is off for release (optimization enable = false). Works, larger APK.
+A7  OPEN      Play Console forms:
+                - Data safety: precise location, name, device or other IDs, crash logs.
+                - Foreground service declaration for the location type (needs a demo video).
+                - Content rating, target audience, privacy policy URL.
+A8  CHECK     If the Play developer account is personal and was created after Nov 2023,
+              Google requires a closed test with 12 testers for 14 days before production.
+
+AFTER THE STORE LISTINGS EXIST
+------------------------------
+L1  OPEN      Replace APP_STORE_URL_HERE and GOOGLE_PLAY_URL_HERE in RiDelirium-Web/index.html
+              (lines 39-40 and 243-244), then redeploy the site.
+L2  OPEN      Set APP_STORE_URL and PLAY_STORE_URL in the server .env so the /join/CODE page
+              shows store buttons.
+
+NOT BLOCKING
+------------
+Open parity items in IOS_ANDROID_DIFF.txt (T2-T6, S1-S6, R1-R7, D2, N4) are polish and do not
+block either store.
+
+DONE LOG
+--------
