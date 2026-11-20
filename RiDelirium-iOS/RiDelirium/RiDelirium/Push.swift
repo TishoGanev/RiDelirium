@@ -49,7 +49,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         UNUserNotificationCenter.current().setNotificationCategories(WaitNotification.categories)
         // "OK, waiting" on the lock screen runs here, even when the app was not open.
         WaitCoordinator.accept = { id in
-            if let store = await FriendsStore.current {
+            if let store = FriendsStore.current {
                 await store.acceptWait(id: id)
             } else if let service = RemoteFriendsService.configured(identity: await FriendsStore.deviceIdentity) {
                 try? await service.acceptWait(id: id)

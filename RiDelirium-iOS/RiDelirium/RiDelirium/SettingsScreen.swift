@@ -20,6 +20,9 @@ struct SettingsScreen: View {
     @EnvironmentObject private var tracker: LocationTracker
     @State private var isEditingName = false
     @State private var nameDraft = ""
+    @State private var isConfirmingDelete = false
+    @State private var isDeleting = false
+    @State private var deleteFailed = false
     @Environment(\.verticalSizeClass) private var verticalSizeClass
 
     var body: some View {
@@ -58,6 +61,8 @@ struct SettingsScreen: View {
                     }
                 }
                 .buttonStyle(SettingsRowPressStyle())
+
+                deleteDataRow
 
                 Spacer()
             }
@@ -108,6 +113,7 @@ struct SettingsScreen: View {
                                 }
                             }
                             .buttonStyle(SettingsRowPressStyle())
+                            deleteDataRow
                         }
                         .background(Color.white, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
                         .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
@@ -194,6 +200,43 @@ struct SettingsScreen: View {
             Rectangle().fill(Color.sbDivider).frame(height: 1)
         }
         .onChange(of: autoStart) { _, _ in tracker.refreshMotionMonitoring() }
+    }
+
+    /// App Store 5.1.1(v): what Ride Together keeps on the server (name, crews, token) can be deleted from the app.
+    private var deleteDataRow: some View {
+        Button {
+            isConfirmingDelete = true
+        } label: {
+            SettingsRow {
+                Text("DELETE MY RIDE TOGETHER DATA")
+                    .font(.sb(18))
+                    .foregroundStyle(.sbRed)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                Spacer()
+                if isDeleting { ProgressView() }
+            }
+        }
+        .buttonStyle(SettingsRowPressStyle())
+        .disabled(isDeleting)
+        .confirmationDialog("Delete your Ride Together data?", isPresented: $isConfirmingDelete, titleVisibility: .visible) {
+            Button("Delete", role: .destructive) {
+                isDeleting = true
+                Task {
+                    let deleted = await friends.deleteRideTogetherData()
+                    deleteFailed = !deleted
+                    isDeleting = false
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("You leave every crew, and your name and crews are removed from the Ride Together server and from this phone. Your recorded rides stay. This can't be undone.")
+        }
+        .alert("Couldn't delete your data", isPresented: $deleteFailed) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("We are offline. Check your signal and try again.")
+        }
     }
 
     /// You, in the riding state, as a friend's map would draw you.

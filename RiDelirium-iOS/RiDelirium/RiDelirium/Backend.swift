@@ -326,6 +326,8 @@ protocol FriendsService {
     func setActivityToken(_ token: String?, sandbox: Bool) async throws
     /// People I rode with in the last 30 days who are in none of my crews now (`GET /v1/riders/recent`).
     func recentRiders() async throws -> [Friend]
+    /// Deletes everything the server keeps about me: name, crew memberships, waits and devices (`DELETE /v1/riders/me`).
+    func deleteMe() async throws
     /// Asks a recent rider to join a crew; they get a push with its code (`POST /v1/riders/{id}/invite`).
     func invite(riderID: String, crewID: String) async throws
 }

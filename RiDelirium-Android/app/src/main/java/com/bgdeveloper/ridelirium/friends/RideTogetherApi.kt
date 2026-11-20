@@ -27,6 +27,11 @@ class RideTogetherApi {
         call("PUT", "riders/me", token, JSONObject().put("name", name))
     }
 
+    /** Deletes everything the server keeps about me: name, crew memberships, waits and devices. */
+    suspend fun deleteMe(token: String) {
+        call("DELETE", "riders/me", token)
+    }
+
     /** My crews, each with its active members (me included). */
     suspend fun crews(token: String): List<Crew> {
         val array = JSONArray(call("GET", "crews", token))

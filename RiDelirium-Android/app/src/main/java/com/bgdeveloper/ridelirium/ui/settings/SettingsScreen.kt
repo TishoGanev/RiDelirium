@@ -41,6 +41,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -86,6 +87,9 @@ fun SettingsScreen(onOpenAbout: () -> Unit, viewModel: SettingsViewModel = hiltV
     val sport by viewModel.sport.collectAsStateWithLifecycle()
     val me by viewModel.me.collectAsStateWithLifecycle()
     var editing by remember { mutableStateOf(false) }
+    val deleting by viewModel.deleting.collectAsStateWithLifecycle()
+    val deleteFailed by viewModel.deleteFailed.collectAsStateWithLifecycle()
+    var confirmingDelete by remember { mutableStateOf(false) }
 
     // Re-read on every return from system settings, so the status is never stale.
     val context = LocalContext.current
@@ -196,11 +200,41 @@ fun SettingsScreen(onOpenAbout: () -> Unit, viewModel: SettingsViewModel = hiltV
             Text("ABOUT RIDELIRIUM", style = sb(18), color = Sb.Charcoal, modifier = Modifier.weight(1f))
             Chevron(Modifier.padding(end = 4.dp), size = 10.dp)
         }
+        // Play account deletion / App Store 5.1.1(v): what Ride Together keeps on the server can be deleted here.
+        SettingsRow(onClick = if (deleting) null else ({ confirmingDelete = true })) {
+            Text("DELETE MY RIDE TOGETHER DATA", style = sb(16), color = Sb.Red, maxLines = 2, modifier = Modifier.weight(1f))
+            if (deleting) CircularProgressIndicator(Modifier.size(20.dp), color = Sb.Red, strokeWidth = 2.dp)
+        }
         }
         if (landscape) {
             Box(Modifier.height(10.dp))
             LandscapeBar { Text("SETTINGS", style = sb(14), color = Sb.Secondary) }
         }
+    }
+
+    if (confirmingDelete) {
+        AlertDialog(
+            onDismissRequest = { confirmingDelete = false },
+            title = { Text("Delete your Ride Together data?") },
+            text = {
+                Text(
+                    "You leave every crew, and your name and crews are removed from the Ride Together server and from " +
+                        "this phone. Your recorded rides stay. This can't be undone.",
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { confirmingDelete = false; viewModel.deleteRideTogetherData() }) { Text("Delete", color = Sb.Red) }
+            },
+            dismissButton = { TextButton(onClick = { confirmingDelete = false }) { Text("Cancel") } },
+        )
+    }
+    if (deleteFailed) {
+        AlertDialog(
+            onDismissRequest = viewModel::dismissDeleteError,
+            title = { Text("Couldn't delete your data") },
+            text = { Text("We are offline. Check your signal and try again.") },
+            confirmButton = { TextButton(onClick = viewModel::dismissDeleteError) { Text("OK") } },
+        )
     }
 
     if (editing) {

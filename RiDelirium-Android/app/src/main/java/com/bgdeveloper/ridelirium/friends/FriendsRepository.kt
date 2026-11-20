@@ -12,6 +12,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.delay
@@ -394,6 +395,38 @@ class FriendsRepository @Inject constructor(
             .onSuccess { crew -> _state.update { s -> s.copy(crews = s.crews.map { if (it.id == crew.id) crew else it }) } }
             .onFailure { fail(NO_SIGNAL) }
     }
+
+    /**
+     * "Delete my Ride Together data" in Settings: the server forgets this rider (name, crews, waits, devices), then
+     * this phone forgets the name, token, id and crews. Recorded rides and settings stay. False when the server
+     * couldn't be reached; nothing on the phone is cleared then, so the rider can try again. Runs in the
+     * repository's scope, so leaving Settings halfway doesn't cut it short.
+     */
+    suspend fun deleteMyData(): Boolean = scope.async {
+        val savedName = name
+        val token = prefs.getString("token", null)
+        // Without a name no request can register this install again while the delete is on its way.
+        prefs.edit().remove("name").apply()
+        quickRefresh?.cancel()
+        // No token: the server has nothing it would let this install delete.
+        val deleted = token == null || !api.isConfigured || try {
+            api.deleteMe(token)
+            true
+        } catch (e: ApiException) {
+            e.status == 401 // the server had already forgotten this token
+        } catch (e: Exception) {
+            android.util.Log.e("RideTogether", "delete my data failed", e)
+            false
+        }
+        if (!deleted) {
+            savedName?.let { prefs.edit().putString("name", it).apply() }
+            return@async false
+        }
+        prefs.edit().remove("token").remove("identity").remove("selectedCrew").apply()
+        hasLoadedCrews = false
+        _state.update { FriendsState(mySport = it.mySport, offline = !api.isConfigured) }
+        true
+    }.await()
 
     /** Leaves one crew; the others in it are told. */
     fun leave(crewId: String) {

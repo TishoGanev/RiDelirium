@@ -221,6 +221,17 @@ nonisolated struct RemoteFriendsService: FriendsService {
         _ = try await authorized("POST", "riders/\(riderID.uppercased())/invite", body: ["crewId": crewID])
     }
 
+    /// Never registers first: without a token the server has nothing it would let this install delete.
+    func deleteMe() async throws {
+        guard let token = Keychain.read(Self.tokenAccount) else { return }
+        do {
+            _ = try await send("DELETE", "riders/me", body: nil, token: token)
+        } catch RemoteError.status(401) {
+            // The server had already forgotten this token (it purges inactive riders).
+        }
+        Keychain.delete(Self.tokenAccount)
+    }
+
     // MARK: - HTTP
 
     private enum RemoteError: Error {

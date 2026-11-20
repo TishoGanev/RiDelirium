@@ -48,7 +48,7 @@ final class FriendsStore: ObservableObject {
     private var hasLoadedFriends = false
 
     /// The Ride Together server; nil when no API host is configured, and the app is then offline.
-    private let remote: FriendsService?
+    private var remote: FriendsService?
     private var ridingLoop: Task<Void, Never>?
     private var observers: [NSObjectProtocol] = []
     private var quickRefresh: Task<Void, Never>?
@@ -545,6 +545,51 @@ final class FriendsStore: ObservableObject {
                 try? await Task.sleep(for: .seconds(6))
             }
         }
+    }
+
+    /// "Delete my Ride Together data" in Settings: the server forgets this rider (name, crews, waits, devices), then
+    /// this phone forgets the name, token, id and crews. Recorded rides and settings stay. False when the server
+    /// couldn't be reached; nothing on the phone is cleared then, so the rider can try again.
+    func deleteRideTogetherData() async -> Bool {
+        let name = UserDefaults.standard.string(forKey: Self.nameKey)
+        // Without a name no request can register this install again while the delete is on its way.
+        UserDefaults.standard.removeObject(forKey: Self.nameKey)
+        ridingLoop?.cancel()
+        ridingLoop = nil
+        isSharing = false
+        quickRefresh?.cancel()
+        quickRefresh = nil
+        do {
+            try await remote?.deleteMe()
+        } catch {
+            if let name { UserDefaults.standard.set(name, forKey: Self.nameKey) }
+            Self.log.error("delete my data failed: \(String(describing: error), privacy: .public)")
+            return false
+        }
+        Keychain.delete("apiToken")
+        UserDefaults.standard.removeObject(forKey: "selectedCrew")
+        UserDefaults.standard.removeObject(forKey: "voiceIdentity")
+        // A new install id from now on, so a later name starts as a new rider.
+        if remote is RemoteFriendsService { remote = RemoteFriendsService.configured(identity: Self.deviceIdentity) }
+        me = nil
+        crews = []
+        selectedCrewID = nil
+        friends = []
+        joinPreview = nil
+        joinError = nil
+        justJoined = nil
+        pendingInvite = nil
+        incomingWaits = []
+        activeWait = nil
+        focusFriendID = nil
+        joinBanner = nil
+        recentRiders = []
+        invitedIDs = []
+        waitSent = [:]
+        sentPushToken = nil
+        hasLoadedFriends = false
+        Self.log.info("ride together data deleted")
+        return true
     }
 
     /// Leaves one crew; the others in it are told.

@@ -7,10 +7,12 @@ import com.bgdeveloper.ridelirium.friends.Friend
 import com.bgdeveloper.ridelirium.friends.FriendsRepository
 import com.bgdeveloper.ridelirium.friends.Sport
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
@@ -41,4 +43,22 @@ class SettingsViewModel @Inject constructor(
 
     fun setMetric(metric: Boolean) = settings.setMetric(metric)
     fun setName(name: String) = friends.setName(name)
+
+    private val _deleting = MutableStateFlow(false)
+    /** True while "Delete my Ride Together data" is on its way to the server. */
+    val deleting: StateFlow<Boolean> = _deleting
+    private val _deleteFailed = MutableStateFlow(false)
+    /** The last delete couldn't reach the server; nothing was cleared. */
+    val deleteFailed: StateFlow<Boolean> = _deleteFailed
+
+    fun deleteRideTogetherData() {
+        if (_deleting.value) return
+        _deleting.value = true
+        viewModelScope.launch {
+            _deleteFailed.value = !friends.deleteMyData()
+            _deleting.value = false
+        }
+    }
+
+    fun dismissDeleteError() { _deleteFailed.value = false }
 }
