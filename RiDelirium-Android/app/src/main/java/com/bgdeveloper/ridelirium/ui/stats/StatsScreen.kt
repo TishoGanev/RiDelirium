@@ -10,7 +10,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import com.bgdeveloper.ridelirium.domain.DayMetrics
-import com.bgdeveloper.ridelirium.domain.PeriodInsights
+import com.bgdeveloper.ridelirium.domain.InsightFacts
+import com.bgdeveloper.ridelirium.friends.Sport
 import com.bgdeveloper.ridelirium.domain.StatsRange
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -95,8 +96,13 @@ fun StatsScreen(onOpenDay: (Int) -> Unit, viewModel: StatsViewModel = hiltViewMo
     }
 
     if (showProgress) {
-        val bullets = remember(ui.sessions, ui.units) { PeriodInsights.bullets(ui.sessions.map(DayMetrics::of), ui.units) }
-        BulletSheet(title = "PROGRESS · ${ui.range.title}", bullets = bullets, onDismiss = { showProgress = false })
+        val facts = remember(ui.sessions, ui.units, ui.range) {
+            // Progress only makes sense within one sport, so a mixed period is summarised for the sport ridden most.
+            val sport = ui.sessions.groupingBy { it.sport }.eachCount().maxByOrNull { it.value }?.key ?: Sport.BOARD
+            val rides = ui.sessions.filter { it.sport == sport }
+            InsightFacts.period(rides.map(DayMetrics::of), ui.range.title, ui.units, sport)
+        }
+        BulletSheet(title = "PROGRESS · ${ui.range.title}", facts = facts, onDismiss = { showProgress = false })
     }
 
     pendingDelete?.let { session ->

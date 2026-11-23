@@ -2,14 +2,13 @@ package com.bgdeveloper.ridelirium.push
 
 import android.Manifest
 import android.app.AlarmManager
-import android.app.NotificationChannel
-import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationChannelCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import com.bgdeveloper.ridelirium.MainActivity
@@ -68,8 +67,9 @@ object StayReminder {
 
     internal fun show(context: Context, crewId: String, crewName: String, endsAtMs: Long) {
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
-        context.getSystemService(NotificationManager::class.java)
-            .createNotificationChannel(NotificationChannel(CrewNotifications.CHANNEL, "Ride Together", NotificationManager.IMPORTANCE_HIGH))
+        NotificationManagerCompat.from(context).createNotificationChannel(
+            NotificationChannelCompat.Builder(CrewNotifications.CHANNEL, NotificationManagerCompat.IMPORTANCE_HIGH).setName("Ride Together").build()
+        )
         val end = Instant.ofEpochMilli(endsAtMs).atZone(ZoneId.systemDefault())
         val open = Intent(context, MainActivity::class.java)
             .putExtra(EXTRA_OPEN_RIDE_TOGETHER, true)

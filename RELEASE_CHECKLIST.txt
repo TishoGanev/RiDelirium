@@ -60,6 +60,12 @@ A7  OPEN      Play Console forms:
                 - Content rating, target audience, privacy policy URL.
 A8  CHECK     Has a long lead time, so check it first. If the Play developer account is personal and was created after Nov 2023,
               Google requires a closed test with 12 testers for 14 days before production.
+A9  OPEN      Play Console > App content > Target audience: the answer includes children, so Play
+              asks about the Families Policy in Data safety. The app is not for children (live
+              location sharing, Crashlytics, Firebase Messaging). Untick every group under 13,
+              pick teens and adults only (or 18+), answer "No" to "might your app appeal to
+              children?", save, then Data safety no longer shows the Families question. Keep the
+              content rating and the App Store age rating consistent with it.
 
 B10 OPEN      Everything since e1263c4 is uncommitted on release/2.0 (Settings version footer
               and scroll, ridelirium.com invite links, signing config, A5). Commit it, and

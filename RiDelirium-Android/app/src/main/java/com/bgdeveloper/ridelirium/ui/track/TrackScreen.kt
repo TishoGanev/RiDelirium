@@ -1,6 +1,7 @@
 package com.bgdeveloper.ridelirium.ui.track
 
 import android.Manifest
+import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -14,6 +15,7 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import com.bgdeveloper.ridelirium.tracking.MotionMonitor
 import com.bgdeveloper.ridelirium.ui.SportGlyph
 import com.bgdeveloper.ridelirium.friends.Sport
 import androidx.compose.foundation.background
@@ -139,12 +141,13 @@ fun TrackScreen(viewModel: TrackViewModel = hiltViewModel(), friendsViewModel: F
     }
     LaunchedEffect(Unit) {
         permissionLauncher.launch(
-            arrayOf(
-                Manifest.permission.ACCESS_FINE_LOCATION,
-                Manifest.permission.ACCESS_COARSE_LOCATION,
-                Manifest.permission.POST_NOTIFICATIONS,
-                Manifest.permission.ACTIVITY_RECOGNITION,
-            )
+            buildList {
+                add(Manifest.permission.ACCESS_FINE_LOCATION)
+                add(Manifest.permission.ACCESS_COARSE_LOCATION)
+                if (Build.VERSION.SDK_INT >= 33) add(Manifest.permission.POST_NOTIFICATIONS)
+                // Motion activity (auto start and stop) is hidden below Android 10, where this permission does not exist.
+                if (MotionMonitor.isSupported) add(Manifest.permission.ACTIVITY_RECOGNITION)
+            }.toTypedArray()
         )
     }
 

@@ -2,6 +2,14 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <!-- The on-device AI library needs Android 8, but its code only runs inside AiInsights, which treats any failure as
+         "not available", and Android 7 phones have no Gemini Nano anyway. -->
+    <uses-sdk tools:overrideLibrary="com.google.mlkit.genai.prompt, com.google.mlkit.genai.common" />
+
+    <!-- The QR scanner library locks its own screen to portrait, which Play reads as "requires a portrait screen" and
+         hides the app from landscape-only devices. The app itself works in both orientations. -->
+    <uses-feature android:name="android.hardware.screen.portrait" android:required="false" />
+
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />

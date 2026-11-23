@@ -1,14 +1,13 @@
 package com.bgdeveloper.ridelirium.push
 
 import android.Manifest
-import android.app.NotificationChannel
-import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationChannelCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import com.bgdeveloper.ridelirium.MainActivity
@@ -22,8 +21,9 @@ object CrewNotifications {
     fun show(context: Context, data: Map<String, String>) {
         val body = data["body"] ?: return
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
-        context.getSystemService(NotificationManager::class.java)
-            .createNotificationChannel(NotificationChannel(CHANNEL, "Ride Together", NotificationManager.IMPORTANCE_HIGH))
+        NotificationManagerCompat.from(context).createNotificationChannel(
+            NotificationChannelCompat.Builder(CHANNEL, NotificationManagerCompat.IMPORTANCE_HIGH).setName("Ride Together").build()
+        )
 
         val event = data["event"]
         val open = Intent(context, MainActivity::class.java).apply {

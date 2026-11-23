@@ -7,6 +7,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.os.Build
 import androidx.core.content.ContextCompat
 import com.bgdeveloper.ridelirium.domain.MotionKind
 import com.bgdeveloper.ridelirium.domain.MotionSample
@@ -31,8 +32,9 @@ class MotionMonitor @Inject constructor(@ApplicationContext private val context:
     val latest: StateFlow<MotionSample?> = _latest.asStateFlow()
     private var running = false
 
+    /** Always false below [MIN_SDK]: the permission does not exist there, so nothing is recorded or acted on. */
     val hasPermission: Boolean
-        get() = ContextCompat.checkSelfPermission(context, Manifest.permission.ACTIVITY_RECOGNITION) ==
+        get() = isSupported && ContextCompat.checkSelfPermission(context, Manifest.permission.ACTIVITY_RECOGNITION) ==
             PackageManager.PERMISSION_GRANTED
 
     private fun pendingIntent(): PendingIntent = PendingIntent.getBroadcast(
@@ -74,8 +76,14 @@ class MotionMonitor @Inject constructor(@ApplicationContext private val context:
         _latest.value = MotionSample(kind, confidence)
     }
 
-    private companion object {
-        const val DETECTION_INTERVAL_MILLIS = 10_000L
+    companion object {
+        private const val DETECTION_INTERVAL_MILLIS = 10_000L
+
+        /** Android 10: the first version with the ACTIVITY_RECOGNITION runtime permission. */
+        const val MIN_SDK = 29
+
+        /** Motion activity (auto start and stop, the activity column in the CSV) needs Android 10 or later. */
+        val isSupported: Boolean get() = Build.VERSION.SDK_INT >= MIN_SDK
     }
 }
 

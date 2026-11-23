@@ -119,6 +119,8 @@
 		78C78D4808122DCA109D2ED3 /* WatchTrackView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WatchTrackView.swift; sourceTree = "<group>"; };
 		7DD596536C298751593D2D91 /* OpenSans-CondensedExtraBold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "OpenSans-CondensedExtraBold.ttf"; sourceTree = "<group>"; };
 		88049CDC9BACE070549DC991 /* RideWidgetBundle.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RideWidgetBundle.swift; sourceTree = "<group>"; };
+		960F48FF30B4ADFA00FF05B7 /* ParkCity.gpx */ = {isa = PBXFileReference; lastKnownFileType = text.xml; name = ParkCity.gpx; path = TestData/ParkCity.gpx; sourceTree = "<group>"; };
+		960F490030B4AEC200FF05B7 /* Bansko.gpx */ = {isa = PBXFileReference; lastKnownFileType = text.xml; name = Bansko.gpx; path = TestData/Bansko.gpx; sourceTree = "<group>"; };
 		962C5D8130A5EA7D00EE36F5 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 		96F04BDC2F06CD4900117423 /* RiDelirium.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = RiDelirium.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		96F04BEE2F06CD4A00117423 /* RiDeliriumTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RiDeliriumTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -225,6 +227,8 @@
 		96F04BD32F06CD4900117423 = {
 			isa = PBXGroup;
 			children = (
+				960F490030B4AEC200FF05B7 /* Bansko.gpx */,
+				960F48FF30B4ADFA00FF05B7 /* ParkCity.gpx */,
 				96F04BDE2F06CD4900117423 /* RiDelirium */,
 				96F04BF12F06CD4A00117423 /* RiDeliriumTests */,
 				96F04BFB2F06CD4A00117423 /* RiDeliriumUITests */,

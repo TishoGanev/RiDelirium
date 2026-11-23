@@ -36,7 +36,7 @@ android {
 
     defaultConfig {
         applicationId = "com.bgdeveloper.ridelirium"
-        minSdk = 29
+        minSdk = 24
         targetSdk = 37
         versionCode = buildNumber
         versionName = "2.0.0"
@@ -75,6 +75,8 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
+        // java.time is used in many places and only exists from Android 8.
+        isCoreLibraryDesugaringEnabled = true
     }
     buildFeatures {
         compose = true
@@ -103,6 +105,9 @@ dependencies {
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)
+    // On-device Gemini Nano (AICore) for the written ride insights; unsupported phones just keep the numbers.
+    implementation(libs.mlkit.genai.prompt)
+    coreLibraryDesugaring(libs.desugar.jdk.libs)
 
     implementation(libs.maps.compose)
     implementation(libs.play.services.maps)

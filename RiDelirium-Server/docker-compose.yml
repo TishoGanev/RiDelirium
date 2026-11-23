@@ -16,7 +16,7 @@ x-api: &api
     ANDROID_CERT_SHA256: ${ANDROID_CERT_SHA256:-}
     ANDROID_PACKAGE: ${ANDROID_PACKAGE:-com.bgdeveloper.ridelirium}
     APP_STORE_URL: ${APP_STORE_URL:-https://apps.apple.com/us/app/ridelirium/id1080784776}
-    PLAY_STORE_URL: ${PLAY_STORE_URL:-}
+    PLAY_STORE_URL: ${PLAY_STORE_URL:-https://play.google.com/store/apps/details?id=com.bgdeveloper.ridelirium}
     INVITE_HOST: ${INVITE_HOST:-ridelirium.com}
   volumes:
     - ./apns.p8:/run/secrets/apns.p8:ro

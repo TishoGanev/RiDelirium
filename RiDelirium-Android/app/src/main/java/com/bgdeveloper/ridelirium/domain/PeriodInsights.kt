@@ -34,8 +34,8 @@ data class DayMetrics(
 
 /**
  * Plain-language progress over many rides, worked out in code: earlier rides against later ones.
- * Keep in sync with `RideInsightFacts(period:)` in `StatsRange.swift` on iOS. Android has no on-device
- * language model, so these lines are the whole summary.
+ * Keep in sync with `RideInsightFacts(period:)` in `StatsRange.swift` on iOS. These lines show on every phone;
+ * phones with Gemini Nano also get a written summary (see `ai/AiInsights.kt`).
  */
 object PeriodInsights {
     private const val CHANGE_PERCENT = 8

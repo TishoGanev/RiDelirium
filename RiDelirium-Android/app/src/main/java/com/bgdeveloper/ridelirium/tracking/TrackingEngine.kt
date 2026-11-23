@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.location.Location
+import android.os.Build
 import android.os.Looper
 import androidx.core.content.ContextCompat
 import com.bgdeveloper.ridelirium.data.RideRepository
@@ -308,10 +309,10 @@ class TrackingEngine @Inject constructor(
             speed = speed, timestamp = location.time, session = session,
             rawSpeed = rawSpeed,
             horizontalAccuracy = accuracy?.toDouble() ?: -1.0,
-            verticalAccuracy = if (location.hasVerticalAccuracy()) location.verticalAccuracyMeters.toDouble() else -1.0,
-            speedAccuracy = if (location.hasSpeedAccuracy()) location.speedAccuracyMetersPerSecond.toDouble() else -1.0,
+            verticalAccuracy = if (Build.VERSION.SDK_INT >= 26 && location.hasVerticalAccuracy()) location.verticalAccuracyMeters.toDouble() else -1.0,
+            speedAccuracy = if (Build.VERSION.SDK_INT >= 26 && location.hasSpeedAccuracy()) location.speedAccuracyMetersPerSecond.toDouble() else -1.0,
             course = if (location.hasBearing()) location.bearing.toDouble() else -1.0,
-            courseAccuracy = if (location.hasBearingAccuracy()) location.bearingAccuracyDegrees.toDouble() else -1.0,
+            courseAccuracy = if (Build.VERSION.SDK_INT >= 26 && location.hasBearingAccuracy()) location.bearingAccuracyDegrees.toDouble() else -1.0,
             activity = sample?.kind?.csv,
             activityConfidence = sample?.confidence,
             gForce = peakG,

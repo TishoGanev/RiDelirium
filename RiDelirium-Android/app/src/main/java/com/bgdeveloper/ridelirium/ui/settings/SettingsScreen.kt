@@ -8,10 +8,12 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
 import com.bgdeveloper.ridelirium.friends.Friend
 import com.bgdeveloper.ridelirium.friends.Sport
+import com.bgdeveloper.ridelirium.tracking.MotionMonitor
 import com.bgdeveloper.ridelirium.domain.Units
 import com.bgdeveloper.ridelirium.ui.track.RiderTag
 import android.Manifest
 import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -104,10 +106,13 @@ fun SettingsScreen(onOpenAbout: () -> Unit, viewModel: SettingsViewModel = hiltV
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
     val openNotificationSettings = {
-        context.startActivity(
+        // The per-app notification page exists from Android 8; before that the app's own settings page is the closest.
+        val intent = if (Build.VERSION.SDK_INT >= 26) {
             Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-        )
+        } else {
+            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null))
+        }
+        runCatching { context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
     }
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         notificationsOn = NotificationManagerCompat.from(context).areNotificationsEnabled()
@@ -160,19 +165,22 @@ fun SettingsScreen(onOpenAbout: () -> Unit, viewModel: SettingsViewModel = hiltV
         }
         SportRow(sport, me, metric, viewModel::setSport)
         // Start and stop from motion activity. Recorded points are never deleted by it.
-        SettingsRow {
-            Text("START WHEN DRIVING", style = sb(18), color = Sb.Charcoal, modifier = Modifier.weight(1f))
-            Switch(checked = autoStart, onCheckedChange = viewModel::setAutoStart, colors = SwitchDefaults.colors(checkedTrackColor = Sb.Red))
-        }
-        SettingsRow {
-            Text("STOP WHEN IDLE", style = sb(18), color = Sb.Charcoal, modifier = Modifier.weight(1f))
-            Switch(checked = autoStop, onCheckedChange = viewModel::setAutoStop, colors = SwitchDefaults.colors(checkedTrackColor = Sb.Red))
-        }
-        if (autoStop) {
+        // Hidden below Android 10, where motion activity is not available.
+        if (MotionMonitor.isSupported) {
             SettingsRow {
-                Text("AFTER $stopMinutes MIN STANDING OR WALKING", style = sb(15), color = Sb.Charcoal, modifier = Modifier.weight(1f))
-                StepButton("−") { viewModel.setStopMinutes(stopMinutes - 1) }
-                StepButton("+") { viewModel.setStopMinutes(stopMinutes + 1) }
+                Text("START WHEN DRIVING", style = sb(18), color = Sb.Charcoal, modifier = Modifier.weight(1f))
+                Switch(checked = autoStart, onCheckedChange = viewModel::setAutoStart, colors = SwitchDefaults.colors(checkedTrackColor = Sb.Red))
+            }
+            SettingsRow {
+                Text("STOP WHEN IDLE", style = sb(18), color = Sb.Charcoal, modifier = Modifier.weight(1f))
+                Switch(checked = autoStop, onCheckedChange = viewModel::setAutoStop, colors = SwitchDefaults.colors(checkedTrackColor = Sb.Red))
+            }
+            if (autoStop) {
+                SettingsRow {
+                    Text("AFTER $stopMinutes MIN STANDING OR WALKING", style = sb(15), color = Sb.Charcoal, modifier = Modifier.weight(1f))
+                    StepButton("−") { viewModel.setStopMinutes(stopMinutes - 1) }
+                    StepButton("+") { viewModel.setStopMinutes(stopMinutes + 1) }
+                }
             }
         }
         // Push alerts (crew joined, wait for me) need all three: permission, the app not stopped, and no battery restriction.
