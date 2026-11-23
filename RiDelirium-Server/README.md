@@ -63,6 +63,11 @@ The app's API base URL becomes `https://ridersapi.sportco.net/v1`.
 
 Debug 502: `docker logs ridersapi`, `docker exec nginx-proxy-manager curl -v http://ridersapi/v1/friends`.
 Daily purge: QTS cron, `docker exec ridersapi php purge.php`.
+
+The `sweeper` container (same image) runs `php sweep.php` every minute: memberships whose time ran out end as if the
+rider had left (the rest of the crew gets "<name> left <crew>", the rider's app refreshes with a silent push), crews
+pass on or go when empty, and positions nobody refreshed for ten minutes are deleted. `./deploy.sh` starts it with the
+API. Check with `docker logs ridersapi-sweeper` (quiet when all is well).
 MariaDB must accept TCP from the Docker bridge; the `rider` user needs host `%` (or `172.%`).
 
 ## Website on the QNAP
@@ -96,12 +101,13 @@ Without the key the API runs normally and sends nothing. Check with `docker logs
 
 ## Invite links for messengers (Viber, WhatsApp, ...)
 
-Invites are `https://ridersapi.sportco.net/join/CODE`. The API serves:
+Invites are `https://ridelirium.com/join/CODE`. The website nginx (`RiDelirium-Web/deploy/site.conf`) proxies `/join/` and the two `/.well-known/` files below to this API, so the API serves:
 - `/join/CODE`: a page for people without the app ("X invited you", Open in RiDelirium, the code, store buttons when `APP_STORE_URL` / `PLAY_STORE_URL` are set).
 - `/.well-known/apple-app-site-association`: needs `APNS_TEAM_ID` and `APNS_TOPIC` in `.env`; makes the link open the iPhone app.
 - `/.well-known/assetlinks.json`: needs `ANDROID_CERT_SHA256` (release signing certificate, comma separated for several); makes the link open the Android app.
 
-Check: `curl -i https://ridersapi.sportco.net/.well-known/apple-app-site-association` must return 200 JSON with no redirect.
+Check: `curl -i https://ridelirium.com/.well-known/apple-app-site-association` must return 200 JSON with no redirect.
+The API answers `/join/` and the `/.well-known/` files only for the invite host (`INVITE_HOST`, default `ridelirium.com`); on any other host, such as the API's own address, they return 404.
 Universal links only work in builds signed with the Associated Domains capability, not in the simulator without it; Apple caches the file, so allow a day after changing it.
 
 ## Deploy script

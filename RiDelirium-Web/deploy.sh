@@ -34,8 +34,10 @@ COPYFILE_DISABLE=1 tar --no-xattrs --exclude .DS_Store -cf - *.html css js asset
     | nas "cd $DIR/html && rm -rf ./* && tar -xf - 2>/dev/null && chmod -R a+rX ."
 
 echo "Starting"
-nas "$REMOTE_ENV; docker compose up -d && docker exec rideliriumweb nginx -s reload"
+# site.conf is mounted as a single file and the copy above replaces it, so a running container keeps the old
+# one (nginx -s reload would re-read that old copy). Recreating the container picks up the new file.
+nas "$REMOTE_ENV; docker compose up -d --force-recreate"
 
 echo "Checking"
 sleep 2
-nas "$REMOTE_ENV; for p in / /privacy /support /css/style.css; do docker exec rideliriumweb wget -q -O /dev/null -S http://127.0.0.1\$p 2>&1 | head -1 | sed \"s|^|\$p |\"; done"
+nas "$REMOTE_ENV; for p in / /privacy /support /css/style.css /get; do docker exec rideliriumweb wget -q -O /dev/null -S http://127.0.0.1\$p 2>&1 | head -1 | sed \"s|^|\$p |\"; done"

@@ -40,8 +40,8 @@ import javax.inject.Inject
 
 /** One-shot UI events: the screen reacts and then calls [DailyStatsViewModel.consumeShare]. */
 sealed interface ShareRequest {
-    /** [story] is the 9:16 card for Instagram / Facebook Stories, [feed] the 4:5 one for the share sheet. */
-    data class Card(val story: Uri, val feed: Uri, val text: String) : ShareRequest
+    /** [feed] is the 4:5 ride card for the share sheet. */
+    data class Card(val feed: Uri, val text: String) : ShareRequest
     data class Csv(val file: Uri) : ShareRequest
 }
 
@@ -129,13 +129,11 @@ class DailyStatsViewModel @Inject constructor(
                 distanceUnit = ui.units.distanceUnit,
                 maxSpeed = ui.units.speed(session.maxSpeed),
             )
-            val (story, feed) = withContext(Dispatchers.Default) {
-                ShareCardFormat.entries.map { format ->
-                    val card = ShareCardRenderer.render(context, mapSnapshots[format], data, format)
-                    ShareFiles.savePng(context, "ride-$sessionId-${format.name.lowercase()}.png", card)
-                }
+            val feed = withContext(Dispatchers.Default) {
+                val card = ShareCardRenderer.render(context, mapSnapshots[ShareCardFormat.Feed], data, ShareCardFormat.Feed)
+                ShareFiles.savePng(context, "ride-$sessionId-feed.png", card)
             }
-            transient.update { it.copy(isPreparingShare = false, shareRequest = ShareRequest.Card(story, feed, summaryText(ui))) }
+            transient.update { it.copy(isPreparingShare = false, shareRequest = ShareRequest.Card(feed, summaryText(ui))) }
         }
     }
 

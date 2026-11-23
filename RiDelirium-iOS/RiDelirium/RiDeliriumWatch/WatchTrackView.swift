@@ -38,13 +38,13 @@ struct WatchTrackView: View {
         .ignoresSafeArea()
         .onAppear {
             workout.startMonitoring()
-            workout.sync(tracking: state.isTracking, paused: state.isPaused)
+            workout.sync(tracking: state.isTracking, paused: state.isPaused, sport: state.sport)
         }
         .onChange(of: state.isTracking) { _, tracking in
-            workout.sync(tracking: tracking, paused: state.isPaused)
+            workout.sync(tracking: tracking, paused: state.isPaused, sport: state.sport)
             if tracking { gForce.start() } else { gForce.stop(); confirmingStop = false }
         }
-        .onChange(of: state.isPaused) { workout.sync(tracking: state.isTracking, paused: state.isPaused) }
+        .onChange(of: state.isPaused) { workout.sync(tracking: state.isTracking, paused: state.isPaused, sport: state.sport) }
         .onChange(of: workout.heartRate) { _, bpm in
             if let bpm, state.isTracking { link.sendHeartRate(bpm) }
         }

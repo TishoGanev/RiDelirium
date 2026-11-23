@@ -16,7 +16,7 @@ import com.bgdeveloper.ridelirium.R
 
 /** Builds the alerts the server sends: crew joined/left, wait for me, invites. */
 object CrewNotifications {
-    private const val CHANNEL = "crew"
+    internal const val CHANNEL = "crew"
     private const val EXTRA_WAIT = "waitId"
 
     fun show(context: Context, data: Map<String, String>) {

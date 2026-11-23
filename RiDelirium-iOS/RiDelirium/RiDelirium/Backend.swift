@@ -61,42 +61,24 @@ nonisolated struct Friend: Identifiable, Equatable, Codable {
 /// An invite to ride together. The QR code encodes `url`; scanning it opens the app and joins.
 struct Invite: Equatable {
     let code: String
-    /// Carried in the QR so the scanner knows who invited them even before the phones connect.
+    /// Only set for old ridelirium:// codes, which carried the inviter; the https link does not.
     let inviter: Friend?
 
-    var url: URL { InviteLink.url(for: code, inviter: inviter) }
+    var url: URL { InviteLink.url(for: code) }
 }
 
 enum InviteLink {
-    /// Legacy link, still accepted from older QR codes and used when no web host is configured.
+    /// Legacy link, still accepted from older QR codes.
     static let scheme = "ridelirium"
 
-    /// The API's host (for example "ridersapi.sportco.net"), which serves https://<host>/join/<code> so the link is
-    /// tappable in Viber, WhatsApp and the like. Nil when the app talks to a bare IP address.
-    static var webHost: String? {
-        guard let value = Bundle.main.object(forInfoDictionaryKey: "APIHost") as? String, !value.hasPrefix("$(") else { return nil }
-        let host = String(value.split(separator: "/").first ?? "")
-        return host.isEmpty || host.first?.isNumber == true ? nil : host
-    }
+    /// Invite links are https://<host>/join/<code>, tappable in Viber, WhatsApp and the like.
+    static let webHost = "ridelirium.com"
 
-    static func url(for code: String, inviter: Friend?) -> URL {
+    static func url(for code: String) -> URL {
         var components = URLComponents()
-        if let host = webHost {
-            components.scheme = "https"
-            components.host = host
-            components.path = "/join/\(code)"
-            return components.url!
-        }
-        components.scheme = scheme
-        components.host = "join"
-        components.path = "/\(code)"
-        if let inviter {
-            components.queryItems = [
-                URLQueryItem(name: "id", value: inviter.id),
-                URLQueryItem(name: "name", value: inviter.displayName),
-                URLQueryItem(name: "initials", value: inviter.initials),
-            ]
-        }
+        components.scheme = "https"
+        components.host = webHost
+        components.path = "/join/\(code)"
         return components.url!
     }
 
@@ -280,7 +262,7 @@ nonisolated enum FriendsError: LocalizedError, Equatable {
         case .invalidCode: "That code doesn't look right. Codes are 8 letters and numbers."
         case .offline: "We are offline. Check your signal and try again."
         case .noName: "Add your name first to ride together."
-        case .full: "That crew is full (3 riders), or you are in 10 crews already."
+        case .full: "That crew is full, or you are in 10 crews already."
         }
     }
 }

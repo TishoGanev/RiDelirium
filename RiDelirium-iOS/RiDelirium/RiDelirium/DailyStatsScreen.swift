@@ -17,7 +17,6 @@ struct DailyStatsScreen: View {
     @State private var cameraPosition: MapCameraPosition
     @State private var shareContent: ShareContent?
     @State private var isPreparingShare = false
-    @State private var shareCards: ShareCards?
     @StateObject private var replay: RideReplay
     @State private var isReplaying = false
     @StateObject private var health = HealthDownhill()
@@ -85,17 +84,6 @@ struct DailyStatsScreen: View {
         .sheet(isPresented: $showSegments) {
             SegmentsSheet(session: session, analysis: analysis, units: units)
                 .presentationDetents([.medium, .large])
-        }
-        .confirmationDialog("Share ride", isPresented: Binding(
-            get: { shareCards != nil },
-            set: { if !$0 { shareCards = nil } }
-        ), titleVisibility: .visible, presenting: shareCards) { cards in
-            ForEach(StoryTarget.allCases.filter(\.isInstalled)) { target in
-                Button(target.title) { target.share(cards.story) }
-            }
-            // The 4:5 card suits a feed post; the system sheet reaches the profile, Messages and the rest.
-            Button("More…") { shareContent = ShareContent(items: [cards.feed, summaryText]) }
-            Button("Cancel", role: .cancel) {}
         }
         .sheet(item: $shareContent) { content in
             ActivityView(items: content.items)
@@ -496,28 +484,26 @@ struct DailyStatsScreen: View {
     private func share() {
         isPreparingShare = true
         Task {
-            var images: [ShareCardFormat: UIImage] = [:]
-            for format in ShareCardFormat.allCases {
-                let map = await RouteSnapshot.make(
-                    coordinates: routeCoordinates,
-                    parts: routeParts.map { ($0.activity, $0.coordinates) },
-                    stills: stillSpots,
-                    size: format.mapSize
-                )
-                let card = RideShareCard(
-                    format: format,
-                    map: map,
-                    placeName: placeName,
-                    date: session.startDate.formatted(.dateTime.day(.twoDigits).month(.abbreviated)),
-                    distance: String(format: "%.1f", units.distanceValue(meters: session.distance)),
-                    distanceUnit: units.distanceUnit,
-                    maxSpeed: units.speed(metersPerSecond: session.maxSpeed)
-                )
-                images[format] = card.render()
-            }
+            // Only the 4:5 card for now; the 9:16 Story card waits for Instagram / Facebook Stories.
+            let format = ShareCardFormat.feed
+            let map = await RouteSnapshot.make(
+                coordinates: routeCoordinates,
+                parts: routeParts.map { ($0.activity, $0.coordinates) },
+                stills: stillSpots,
+                size: format.mapSize
+            )
+            let card = RideShareCard(
+                format: format,
+                map: map,
+                placeName: placeName,
+                date: session.startDate.formatted(.dateTime.day(.twoDigits).month(.abbreviated)),
+                distance: String(format: "%.1f", units.distanceValue(meters: session.distance)),
+                distanceUnit: units.distanceUnit,
+                maxSpeed: units.speed(metersPerSecond: session.maxSpeed)
+            )
             isPreparingShare = false
-            if let story = images[.story], let feed = images[.feed] {
-                shareCards = ShareCards(story: story, feed: feed)
+            if let image = card.render() {
+                shareContent = ShareContent(items: [image, summaryText])
             } else {
                 shareContent = ShareContent(items: [summaryText])
             }
@@ -602,12 +588,6 @@ private struct RouteMarker: View {
             .overlay(Circle().strokeBorder(stroke, lineWidth: 3))
             .frame(width: 12, height: 12)
     }
-}
-
-/// The rendered cards: 9:16 for Stories, 4:5 for the feed.
-private struct ShareCards {
-    let story: UIImage
-    let feed: UIImage
 }
 
 private struct ShareContent: Identifiable {

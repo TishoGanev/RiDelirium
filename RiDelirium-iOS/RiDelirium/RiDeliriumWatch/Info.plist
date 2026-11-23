@@ -7,7 +7,7 @@
 	<key>NSHealthShareUsageDescription</key>
 	<string>RiDelirium shows your heart rate while you ride.</string>
 	<key>NSHealthUpdateUsageDescription</key>
-	<string>RiDelirium saves your snowboarding sessions to Health.</string>
+	<string>RiDelirium saves the workout your Apple Watch records during a ride to Health.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>RiDelirium uses the watch compass so a friend's arrow points the way to them.</string>
 	<key>NSMotionUsageDescription</key>

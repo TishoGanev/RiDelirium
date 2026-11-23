@@ -39,7 +39,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
@@ -50,7 +49,6 @@ import com.bgdeveloper.ridelirium.domain.Units
 import androidx.compose.foundation.layout.width
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -71,7 +69,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bgdeveloper.ridelirium.R
 import com.bgdeveloper.ridelirium.share.ShareCardFormat
 import com.bgdeveloper.ridelirium.share.ShareFiles
-import com.bgdeveloper.ridelirium.share.StoryTarget
 import com.bgdeveloper.ridelirium.ui.Chevron
 import com.bgdeveloper.ridelirium.ui.HeroNumber
 import com.bgdeveloper.ridelirium.ui.statusBarTop
@@ -107,13 +104,12 @@ fun DailyStatsScreen(onBack: () -> Unit, viewModel: DailyStatsViewModel = hiltVi
     val scope = rememberCoroutineScope()
     var map by remember { mutableStateOf<GmsMap?>(null) }
     val padding = with(LocalDensity.current) { 48.dp.roundToPx() }
-    var cardRequest by remember { mutableStateOf<ShareRequest.Card?>(null) }
     var showSegments by remember { mutableStateOf(false) }
     var showInsights by remember { mutableStateOf(false) }
 
     LaunchedEffect(ui.shareRequest) {
         when (val request = ui.shareRequest) {
-            is ShareRequest.Card -> cardRequest = request
+            is ShareRequest.Card -> ShareFiles.chooser(context, request.feed, "image/png", request.text)
             is ShareRequest.Csv -> ShareFiles.chooser(context, request.file, "text/csv")
             null -> return@LaunchedEffect
         }
@@ -169,36 +165,32 @@ fun DailyStatsScreen(onBack: () -> Unit, viewModel: DailyStatsViewModel = hiltVi
         InsightsSheet(ui, onDismiss = { showInsights = false })
     }
 
-    cardRequest?.let { request ->
-        ShareOptionsDialog(
-            onDismiss = { cardRequest = null },
-            onStory = { target -> target.share(context, request.story); cardRequest = null },
-            onMore = { ShareFiles.chooser(context, request.feed, "image/png", request.text); cardRequest = null },
-        )
-    }
 }
 
 private suspend fun snapshot(map: GmsMap): Bitmap? = suspendCancellableCoroutine { cont ->
     map.snapshot { cont.resume(it) }
 }
 
+/** Only the 4:5 card is shared for now; the 9:16 Story card waits for Instagram / Facebook Stories. */
+private val sharedFormats = listOf(ShareCardFormat.Feed)
+
 /**
  * One map snapshot per share card, each with the route framed for that card's map area, so the
  * card's centre crop never cuts it off. The camera goes back where the rider left it afterwards.
  */
 private suspend fun shareSnapshots(map: GmsMap, coordinates: List<LatLng>, padding: Int): Map<ShareCardFormat, Bitmap?> {
-    if (coordinates.isEmpty()) return ShareCardFormat.entries.associateWith { snapshot(map) }
+    if (coordinates.isEmpty()) return sharedFormats.associateWith { snapshot(map) }
     val projection = map.projection
     val region = projection.visibleRegion
     val farRight = projection.toScreenLocation(region.farRight)
     val nearLeft = projection.toScreenLocation(region.nearLeft)
     val mapWidth = farRight.x - nearLeft.x
     val mapHeight = nearLeft.y - farRight.y
-    if (mapWidth <= 0 || mapHeight <= 0) return ShareCardFormat.entries.associateWith { snapshot(map) }
+    if (mapWidth <= 0 || mapHeight <= 0) return sharedFormats.associateWith { snapshot(map) }
 
     val bounds = LatLngBounds.builder().apply { coordinates.forEach(::include) }.build()
     val saved = map.cameraPosition
-    val result = ShareCardFormat.entries.associateWith { format ->
+    val result = sharedFormats.associateWith { format ->
         val aspect = format.width.toFloat() / format.mapHeight
         var width = mapWidth
         var height = (mapWidth / aspect).toInt()
@@ -565,25 +557,6 @@ private fun ActionGlyph(icon: ActionIcon, color: Color) {
             }
         }
     }
-}
-
-@Composable
-private fun ShareOptionsDialog(onDismiss: () -> Unit, onStory: (StoryTarget) -> Unit, onMore: () -> Unit) {
-    val context = LocalContext.current
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Share ride") },
-        text = {
-            Column {
-                StoryTarget.entries.filter { it.isInstalled(context) }.forEach { target ->
-                    TextButton(onClick = { onStory(target) }, modifier = Modifier.fillMaxWidth()) { Text(target.title) }
-                }
-                TextButton(onClick = onMore, modifier = Modifier.fillMaxWidth()) { Text("More…") }
-            }
-        },
-        confirmButton = {},
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
-    )
 }
 
 /**

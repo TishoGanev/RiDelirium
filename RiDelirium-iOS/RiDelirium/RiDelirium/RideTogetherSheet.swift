@@ -347,7 +347,7 @@ struct RideTogetherSheet: View {
                         .textSelection(.enabled)
                 }
 
-                Text("Let friends scan this, or add someone you rode with.")
+                Text("Let friends scan this or open your invite link, or add someone you rode with.")
                     .font(.sb(15, .semibold))
                     .foregroundStyle(.sbSecondary)
                     .multilineTextAlignment(.center)
@@ -790,7 +790,7 @@ struct RideTogetherSheet: View {
                     .accessibilityLabel("Code \(invite.code.map(String.init).joined(separator: " "))")
             }
 
-            Text("Friends scan with their camera or in RiDelirium. They appear in the crew as soon as they join.")
+            Text("Friends scan with their camera or in RiDelirium, or open the invite link you send them. They appear in the crew as soon as they join.")
                 .font(.sb(16, .semibold))
                 .foregroundStyle(.sbSecondary)
                 .multilineTextAlignment(.center)

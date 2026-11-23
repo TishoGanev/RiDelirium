@@ -15,13 +15,6 @@
 			</array>
 		</dict>
 	</array>
-	<key>FacebookAppID</key>
-	<string>$(FACEBOOK_APP_ID)</string>
-	<key>LSApplicationQueriesSchemes</key>
-	<array>
-		<string>instagram-stories</string>
-		<string>facebook-stories</string>
-	</array>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsLocalNetworking</key>

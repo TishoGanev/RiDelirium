@@ -183,16 +183,24 @@ function deliver(array $device, array $payload): bool {
  */
 function notifyCrewChanged(string $riderId, string $event): void {
     try {
-        $friends = array_column(crewMatesOf($riderId), 'id');
-        foreach ($friends as $friendId) {
-            foreach (q('SELECT token, platform, sandbox FROM devices WHERE rider_id = ?', [$friendId])->fetchAll() as $device) {
-                // iOS: a silent background push (priority 5 is required for those); Android: a data-only message.
-                $alive = $device['platform'] === 'ios'
-                    ? sendApns($device['token'], (bool)$device['sandbox'], ['aps' => ['content-available' => 1], 'event' => $event], 'background', '', 5)
-                    : sendFcm($device['token'], ['event' => $event]);
-                if (!$alive) {
-                    q('DELETE FROM devices WHERE token = ?', [$device['token']]);
-                }
+        foreach (array_column(crewMatesOf($riderId), 'id') as $friendId) {
+            notifySilently($friendId, $event);
+        }
+    } catch (Throwable $e) {
+        error_log('Ride Together push: ' . $e->getMessage());
+    }
+}
+
+/** A push with no alert to every device of `$riderId`, so an open app refreshes its crews. Failures are logged, never thrown. */
+function notifySilently(string $riderId, string $event): void {
+    try {
+        foreach (q('SELECT token, platform, sandbox FROM devices WHERE rider_id = ?', [$riderId])->fetchAll() as $device) {
+            // iOS: a silent background push (priority 5 is required for those); Android: a data-only message.
+            $alive = $device['platform'] === 'ios'
+                ? sendApns($device['token'], (bool)$device['sandbox'], ['aps' => ['content-available' => 1], 'event' => $event], 'background', '', 5)
+                : sendFcm($device['token'], ['event' => $event]);
+            if (!$alive) {
+                q('DELETE FROM devices WHERE token = ?', [$device['token']]);
             }
         }
     } catch (Throwable $e) {

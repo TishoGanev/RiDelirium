@@ -62,16 +62,10 @@ object InviteLink {
     private const val PREFIX = "$SCHEME://join"
     private const val WEB_PATH = "/join/"
 
-    /**
-     * The API's host, which serves https://<host>/join/<code> so the link is tappable in Viber, WhatsApp and the like.
-     * Null when the app talks to a bare IP address or is not configured.
-     */
-    val configuredHost: String? by lazy { hostOf(BuildConfig.API_BASE_URL) }
+    /** Invite links are https://<host>/join/<code>, tappable in Viber, WhatsApp and the like. */
+    const val WEB_HOST = "ridelirium.com"
 
-    fun hostOf(baseUrl: String): String? {
-        val host = baseUrl.substringAfter("://", "").substringBefore('/').substringBefore(':')
-        return host.takeIf { it.isNotEmpty() && !it.first().isDigit() }
-    }
+    val configuredHost: String? = WEB_HOST
 
     /** An https link when [webHost] is known, else the app's own scheme with the inviter's details. */
     fun url(code: String, inviter: Friend?, webHost: String? = null): String {

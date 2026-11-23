@@ -11,11 +11,6 @@
     <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 
-    <queries>
-        <package android:name="com.instagram.android" />
-        <package android:name="com.facebook.katana" />
-    </queries>
-
     <application
         android:name=".RiDeliriumApp"
         android:allowBackup="true"
@@ -43,14 +38,14 @@
 
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-            <!-- Invite links sent in messengers: opens the app once the API host serves /.well-known/assetlinks.json. -->
+            <!-- Invite links sent in messengers: opens the app once the host serves /.well-known/assetlinks.json. -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
 
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
 
-                <data android:scheme="https" android:host="ridersapi.sportco.net" android:pathPrefix="/join/" />
+                <data android:scheme="https" android:host="ridelirium.com" android:pathPrefix="/join/" />
             </intent-filter>
             <!-- Ride Together invite links: ridelirium://join/ABCD2345, also scanned by the iPhone app. -->
             <intent-filter>
@@ -69,6 +64,10 @@
 
         <receiver
             android:name=".push.WaitReceiver"
+            android:exported="false" />
+
+        <receiver
+            android:name=".push.StayReceiver"
             android:exported="false" />
 
         <service

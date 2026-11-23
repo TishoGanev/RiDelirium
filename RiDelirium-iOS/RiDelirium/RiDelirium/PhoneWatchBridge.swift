@@ -59,6 +59,7 @@ final class PhoneWatchBridge: NSObject, ObservableObject, WCSessionDelegate {
             state.hasFix = location.horizontalAccuracy >= 0 && location.horizontalAccuracy <= 20
         }
         state.lastRideDistance = defaults.object(forKey: LocationTracker.lastRideDistanceKey) as? Double
+        state.sport = Sport.saved.rawValue
         return state
     }
 

@@ -23,7 +23,7 @@
 //   GET    /v1/waits/{id}                                 -> 200 {status}       sender: pending | accepted | expired
 //   PUT    /v1/live-activity         {"token","sandbox"}  -> 204                push token of my running Live Activity
 //   DELETE /v1/live-activity                              -> 204
-//   PUT    /v1/live                  {"riding":bool,"lat","lon","speedKmh"} -> 204   heartbeat; "riding" expires after 90 seconds.
+//   PUT    /v1/live                  {"riding":bool,"lat","lon","speedKmh"} -> 204   heartbeat (ignored while I am in no crew); "riding" expires after 90 seconds.
 //                                                                                Crew-mates see the latest position for 10 minutes after
 //                                                                                the last heartbeat ("last seen"), or until riding:false
 //   GET    /join/{code}                                   -> HTML invite page; /.well-known/ files make the link open the apps
@@ -327,11 +327,12 @@ function myCrew(string $id, string $me): array {
 }
 
 /**
- * Removes memberships that ran out, then gives ownerless crews to their oldest member and deletes empty ones.
- * Visibility never depends on this (every query checks expires_at); it only keeps the tables small and tidy.
+ * Ends memberships that ran out, then gives ownerless crews to their oldest member and deletes empty ones.
+ * Visibility never depends on this (every query checks expires_at). Runs every minute from sweep.php and
+ * on some requests.
  */
 function sweepCrews(): void {
-    q('DELETE FROM crew_members WHERE expires_at IS NOT NULL AND expires_at <= UTC_TIMESTAMP()');
+    expireMemberships();
     q('DELETE FROM crews WHERE NOT EXISTS (SELECT 1 FROM crew_members m WHERE m.crew_id = crews.id)');
     q('UPDATE crews c SET owner_id = (SELECT m.rider_id FROM crew_members m WHERE m.crew_id = c.id ORDER BY m.joined_at LIMIT 1)
         WHERE NOT EXISTS (SELECT 1 FROM crew_members m WHERE m.crew_id = c.id AND m.rider_id = c.owner_id)');
@@ -340,6 +341,7 @@ function sweepCrews(): void {
 /** Takes me out of one crew: the others are told, the crew passes on or goes when it is empty. */
 function leaveCrew(array $crew, array $me): void {
     q('DELETE FROM crew_members WHERE crew_id = ? AND rider_id = ?', [$crew['id'], $me['id']]);
+    stopSharingIfCrewless($me['id']);
     $left = q('SELECT rider_id FROM crew_members WHERE crew_id = ? AND ' . active('crew_members'), [$crew['id']])->fetchAll(PDO::FETCH_COLUMN);
     foreach ($left as $other) {
         touchRiddenWith($me['id'], $other);
@@ -351,6 +353,60 @@ function leaveCrew(array $crew, array $me): void {
                 notifyRider($other, 'leave', $me['name'], $crew['name']);
             }
         });
+    }
+}
+
+/**
+ * Ends memberships whose time ran out as if the rider had left: the rest of the crew gets "<name> left <crew>",
+ * the rider's own app refreshes (silent push) and a rider in no crew any more stops sharing at once. Each row is
+ * claimed by its DELETE, so the per-minute sweep and a request sweeping at the same moment never tell twice.
+ */
+function expireMemberships(): void {
+    $rows = q(
+        'SELECT m.crew_id, m.rider_id, r.name AS rider_name, c.name AS crew_name
+           FROM crew_members m JOIN riders r ON r.id = m.rider_id JOIN crews c ON c.id = m.crew_id
+          WHERE m.expires_at IS NOT NULL AND m.expires_at <= UTC_TIMESTAMP()'
+    )->fetchAll();
+    foreach ($rows as $row) {
+        $claimed = q(
+            'DELETE FROM crew_members WHERE crew_id = ? AND rider_id = ? AND expires_at IS NOT NULL AND expires_at <= UTC_TIMESTAMP()',
+            [$row['crew_id'], $row['rider_id']]
+        )->rowCount();
+        if ($claimed !== 1) {
+            continue;
+        }
+        $left = q('SELECT rider_id FROM crew_members WHERE crew_id = ? AND ' . active('crew_members'), [$row['crew_id']])->fetchAll(PDO::FETCH_COLUMN);
+        foreach ($left as $other) {
+            touchRiddenWith($row['rider_id'], $other);
+        }
+        stopSharingIfCrewless($row['rider_id']);
+        later(function () use ($row, $left) {
+            foreach ($left as $other) {
+                notifyRider($other, 'leave', $row['rider_name'], $row['crew_name']);
+            }
+            notifySilently($row['rider_id'], 'expired');
+        });
+    }
+}
+
+/** Nobody sees a rider who is in no active crew, so their position and riding state go at once. */
+function stopSharingIfCrewless(string $riderId): void {
+    q('UPDATE riders SET riding_until = NULL, lat = NULL, lon = NULL, speed = NULL, seen_at = NULL
+        WHERE id = ? AND NOT EXISTS (SELECT 1 FROM crew_members m WHERE m.rider_id = riders.id AND ' . active('m') . ')', [$riderId]);
+}
+
+/** Positions nobody refreshed for POSITION_TTL are deleted, whether or not anyone is using the app. */
+function clearStalePositions(): void {
+    q('UPDATE riders SET lat = NULL, lon = NULL, speed = NULL
+        WHERE lat IS NOT NULL AND (seen_at IS NULL OR seen_at < UTC_TIMESTAMP() - INTERVAL ' . POSITION_TTL . ' SECOND)');
+}
+
+/** After the response in a request; at once in sweep.php, which never responds. */
+function later(callable $work): void {
+    if (PHP_SAPI === 'cli') {
+        $work();
+    } else {
+        afterResponse($work);
     }
 }
 
@@ -412,9 +468,17 @@ function invitePage(string $code): never {
     exit;
 }
 
+// sweep.php loads the functions above and stops here.
+if (defined('RIDE_TOGETHER_LIB')) {
+    return;
+}
+
 $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
 
-if (preg_match('#^/join/([A-Za-z0-9]{8})/?$#', $path, $m) && $_SERVER['REQUEST_METHOD'] === 'GET') {
+// Invite links exist only on the invite host (the website proxies them here), never on the API's own address.
+$onInviteHost = strcasecmp(preg_replace('/:\d+$/', '', $_SERVER['HTTP_HOST'] ?? ''), cfg('INVITE_HOST') ?? 'ridelirium.com') === 0;
+
+if ($onInviteHost && preg_match('#^/join/([A-Za-z0-9]{8})/?$#', $path, $m) && $_SERVER['REQUEST_METHOD'] === 'GET') {
     try {
         invitePage($m[1]);
     } catch (PDOException $e) {
@@ -422,14 +486,14 @@ if (preg_match('#^/join/([A-Za-z0-9]{8})/?$#', $path, $m) && $_SERVER['REQUEST_M
         fail(500, 'Server error');
     }
 }
-if ($path === '/.well-known/apple-app-site-association' && cfg('APNS_TEAM_ID') && cfg('APNS_TOPIC')) {
+if ($onInviteHost && $path === '/.well-known/apple-app-site-association' && cfg('APNS_TEAM_ID') && cfg('APNS_TOPIC')) {
     // Must be served as plain JSON over https without a redirect.
     respond(200, ['applinks' => ['details' => [[
         'appIDs' => [cfg('APNS_TEAM_ID') . '.' . cfg('APNS_TOPIC')],
         'components' => [['/' => '/join/*']],
     ]]]]);
 }
-if ($path === '/.well-known/assetlinks.json' && cfg('ANDROID_CERT_SHA256')) {
+if ($onInviteHost && $path === '/.well-known/assetlinks.json' && cfg('ANDROID_CERT_SHA256')) {
     respond(200, [[
         'relation' => ['delegate_permission/common.handle_all_urls'],
         'target' => [
@@ -758,6 +822,11 @@ try {
         if (!is_bool($riding)) {
             fail(400, 'riding must be true or false');
         }
+        // A rider in no crew is seen by nobody: nothing is stored (the apps stop sending then anyway).
+        if (!q('SELECT 1 FROM crew_members m WHERE m.rider_id = ? AND ' . active('m') . ' LIMIT 1', [$me['id']])->fetchColumn()) {
+            stopSharingIfCrewless($me['id']);
+            respond(204);
+        }
         $lat = $lon = $speed = null;
         if ($riding && isset($in['lat'], $in['lon'])) {
             if (!is_numeric($in['lat']) || !is_numeric($in['lon']) || abs($in['lat']) > 90 || abs($in['lon']) > 180) {
@@ -772,8 +841,7 @@ try {
         q('UPDATE riders SET riding_until = ' . ($riding ? 'UTC_TIMESTAMP() + INTERVAL ' . RIDING_TTL . ' SECOND' : 'NULL')
             . ', lat = ?, lon = ?, speed = ?, seen_at = ' . ($riding ? 'UTC_TIMESTAMP()' : 'NULL') . ' WHERE id = ?',
             [$lat, $lon, $speed, $me['id']]);
-        // Positions nobody has refreshed for ten minutes are not kept.
-        q('UPDATE riders SET lat = NULL, lon = NULL, speed = NULL WHERE lat IS NOT NULL AND (seen_at IS NULL OR seen_at < UTC_TIMESTAMP() - INTERVAL ' . POSITION_TTL . ' SECOND)');
+        clearStalePositions();
         respond(204);
     }
 

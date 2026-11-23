@@ -7,6 +7,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import com.bgdeveloper.ridelirium.friends.FriendsRepository
 import com.bgdeveloper.ridelirium.friends.InviteLink
+import com.bgdeveloper.ridelirium.push.StayReminder
 import com.bgdeveloper.ridelirium.ui.AppRoot
 import com.bgdeveloper.ridelirium.ui.theme.RiDeliriumTheme
 import dagger.hilt.android.AndroidEntryPoint
@@ -34,6 +35,11 @@ class MainActivity : ComponentActivity() {
 
     /** An invite link (https://<api host>/join/ABCD2345 or ridelirium://join/ABCD2345) from a QR scan or a message opens Ride Together and joins. */
     private fun handleInvite(intent: Intent?) {
+        // The "sharing ends in 10 minutes" reminder opens Ride Together.
+        if (intent?.getBooleanExtra(StayReminder.EXTRA_OPEN_RIDE_TOGETHER, false) == true) {
+            friends.showSheet(true)
+            return
+        }
         val uri = intent?.data ?: return
         if (InviteLink.isInvite(uri.scheme, uri.host, uri.path)) friends.handleLink(uri.toString())
     }

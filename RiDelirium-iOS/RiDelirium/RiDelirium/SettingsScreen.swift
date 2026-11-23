@@ -9,6 +9,14 @@ enum SettingsRoute: Hashable {
     case about
 }
 
+/// "VERSION 2.0.0 (2)" from the bundle, shown at the foot of Settings and in About.
+private var appVersionLabel: String {
+    let info = Bundle.main.infoDictionary
+    let short = info?["CFBundleShortVersionString"] as? String ?? "1.0"
+    let build = info?["CFBundleVersion"] as? String ?? "1"
+    return "VERSION \(short) (\(build))"
+}
+
 struct SettingsScreen: View {
     @Binding var path: NavigationPath
     @AppStorage("unitsMetric") private var unitsMetric = true
@@ -34,37 +42,43 @@ struct SettingsScreen: View {
             VStack(spacing: 0) {
                 RedTitleHeader(title: "SETTINGS")
 
-                nameRow
+                // The rows scroll under the fixed header; the footer's bottom padding clears the floating tab bar.
+                ScrollView {
+                    VStack(spacing: 0) {
+                        nameRow
 
-                SettingsRow {
-                    Text("UNITS")
-                        .font(.sb(18))
-                        .foregroundStyle(.sbCharcoal)
-                    Spacer()
-                    SBSegmentedControl(options: [("METRIC", true), ("IMPERIAL", false)], selection: $unitsMetric)
-                }
+                        SettingsRow {
+                            Text("UNITS")
+                                .font(.sb(18))
+                                .foregroundStyle(.sbCharcoal)
+                            Spacer()
+                            SBSegmentedControl(options: [("METRIC", true), ("IMPERIAL", false)], selection: $unitsMetric)
+                        }
 
-                sportRow
+                        sportRow
 
-                autoRecordRow
+                        autoRecordRow
 
-                Button {
-                    path.append(SettingsRoute.about)
-                } label: {
-                    SettingsRow {
-                        Text("ABOUT RIDELIRIUM")
-                            .font(.sb(18))
-                            .foregroundStyle(.sbCharcoal)
-                        Spacer()
-                        Chevron()
-                            .padding(.trailing, 4)
+                        Button {
+                            path.append(SettingsRoute.about)
+                        } label: {
+                            SettingsRow {
+                                Text("ABOUT RIDELIRIUM")
+                                    .font(.sb(18))
+                                    .foregroundStyle(.sbCharcoal)
+                                Spacer()
+                                Chevron()
+                                    .padding(.trailing, 4)
+                            }
+                        }
+                        .buttonStyle(SettingsRowPressStyle())
+
+                        deleteDataRow
+
+                        versionFooter(clearsTabBar: true)
                     }
                 }
-                .buttonStyle(SettingsRowPressStyle())
-
-                deleteDataRow
-
-                Spacer()
+                .scrollIndicators(.hidden)
             }
                 }
             }
@@ -126,6 +140,8 @@ struct SettingsScreen: View {
                         .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
                     }
                     .padding(.bottom, 12)
+
+                    versionFooter(clearsTabBar: false)
                 }
                 .scrollIndicators(.hidden)
 
@@ -143,6 +159,16 @@ struct SettingsScreen: View {
             .background(Color(hex: 0xF4F2F0))
             .ignoresSafeArea()
         }
+    }
+
+    private func versionFooter(clearsTabBar: Bool) -> some View {
+        Text(appVersionLabel)
+            .font(.sb(13))
+            .tracking(13 * 0.08)
+            .foregroundStyle(.sbSecondary)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 16)
+            .padding(.bottom, clearsTabBar ? 90 : 0) // portrait: the floating tab bar overlays the bottom
     }
 
     /// What the rider rides, and a preview of the tag friends see for it.
@@ -323,13 +349,6 @@ private struct SettingsRowPressStyle: ButtonStyle {
 struct AboutScreen: View {
     @Environment(\.dismiss) private var dismiss
 
-    private var version: String {
-        let info = Bundle.main.infoDictionary
-        let short = info?["CFBundleShortVersionString"] as? String ?? "1.0"
-        let build = info?["CFBundleVersion"] as? String ?? "1"
-        return "VERSION \(short) (\(build))"
-    }
-
     var body: some View {
         VStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 8) {
@@ -355,7 +374,7 @@ struct AboutScreen: View {
                 Text("RIDELIRIUM")
                     .font(.sb(28, .extraBold))
                     .foregroundStyle(.sbCharcoal)
-                Text(version)
+                Text(appVersionLabel)
                     .font(.sb(13))
                     .tracking(13 * 0.08)
                     .foregroundStyle(.sbSecondary)

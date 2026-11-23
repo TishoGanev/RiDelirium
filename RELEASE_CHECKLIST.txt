@@ -1,94 +1,159 @@
 RIDELIRIUM 2.0: WHAT IS LEFT BEFORE THE APP STORE AND GOOGLE PLAY
 ==================================================================
 
-Lists only what is still open. When an item is fixed, delete it from this file entirely.
-Ids are kept as they were, so gaps in the numbering are fixed items. Checked from code,
-configs and the live endpoints; no build was made and nothing was run on a device.
+Open items first. When an item is done, move it to DONE at the bottom with the date and
+what was done. Ids never change. Checked from code, configs and the live endpoints; no
+build was made by this checklist and nothing was run on a device unless DONE says so.
 
 Last updated: 2026-11-20
 
 Status words:  OPEN = must be done, CHECK = verify, it may already be fine,
-               DECIDE = needs a product decision, OPTIONAL = nice to have,
-               LATER = not needed for the free 2.0 release.
+               DECIDE = needs a product decision, OPTIONAL = nice to have.
 Store setup steps (bundle ids, review notes, cron) are in RiDelirium-iOS/RiDelirium/DISTRIBUTE.md.
+Features for after 2.0 (paid passes, Stories, parity polish) are in NEXT_VERSION.txt.
 
 
 BOTH STORES (BLOCKERS)
 ----------------------
-B3  OPEN      Redeploy the website with RiDelirium-Web/deploy.sh. The live privacy page
-              does not yet cover Firebase Crashlytics and still lists Nearby riders; the
-              landing page still offers joining nearby friends without a code.
-B5  OPEN      Not committed yet: "Delete my Ride Together data" (Android and iOS), the
-              Crash Data entry in PrivacyInfo.xcprivacy, build_number.txt and the website
-              edits. Then deploy the server and make sure the production DB matches
-              api/schema.sql (walk sport, crew meet columns) before cutting builds.
 B6  OPEN      EU Digital Services Act: declare "not a trader" in App Store Connect (Business)
               and Play Console while the app is free, so no name, address or phone shows on
               EU listings.
-B7  CHECK     Apple account type (developer.apple.com > Membership). An Individual account
-              shows your legal name as seller on the App Store whatever the website says;
-              only an Organization account (needs a company and a D-U-N-S number) hides it.
+B9  OPEN      Device test of the end of sharing, on iPhone and Android:
+                - A rider in no crew sends no position, even while recording.
+                - Join a crew with an end 15 minutes away: the reminder "Sharing with <crew>
+                  ends at hh:mm" comes 10 minutes before; +1 HOUR moves the end; a tap opens
+                  Ride Together.
+                - When the time runs out, the others get "<name> left <crew>" within a minute
+                  and the rider's app drops the crew and stops sharing.
 
 iOS
 ---
-I1  OPEN      App Store Connect > App Privacy: declare Name, User ID, Precise Location, plus
-              Crash Data and Device ID from Crashlytics. All App Functionality, not
-              linked to identity, no tracking. DISTRIBUTE.md and PrivacyInfo.xcprivacy match.
-I2  OPEN      Review notes in DISTRIBUTE.md describe "MY CODE" and "phones nearby connect
-              directly". Nearby join was removed on 2026-11-13 and crews replaced the old
-              flow. Rewrite them around crews and the code join.
-I3  OPTIONAL  Subtitle, keywords and NSHealthUpdateUsageDescription say snowboard only. The
-              app now does ski, bike and walk too.
-I4  OPEN      Screenshots: iPhone 6.9" (1320x2868) and 6.5", Apple Watch (largest size).
-I5  OPEN      TestFlight on a real device: record a ride, join a crew by code, watch app,
-              Live Activity, Delete my Ride Together data (crew-mates get "left", the app
-              asks for a name again). Then submit. Try the delete on Android too.
+I6  OPEN      Universal links moved to ridelirium.com (see DONE B11). Build and install a new
+              iOS build (new Associated Domains entitlement), then on a real iPhone tap
+              https://ridelirium.com/join/<real crew code> from Messages or Notes: it must
+              open the app and join. Allow up to a day for Apple's cache. Old
+              ridersapi.sportco.net links no longer open anything.
 
-              Already fine: app, watch and widget all MARKETING_VERSION 2.0.0, build 103,
-              API_HOST set, live apple-app-site-association returns 200 and is correct.
+              Already fine: app, watch and widget all MARKETING_VERSION 2.0.0, build number
+              bumps on every build, API_HOST set (API calls only), live
+              ridelirium.com/.well-known/apple-app-site-association returns 200 and is correct.
 
 ANDROID
 -------
-A1  OPEN      No release signing config and no upload keystore. Set up an upload key with
-              Play App Signing. Bump versionCode (now 2) on every upload.
-A2  OPEN      ridersapi.sportco.net/.well-known/assetlinks.json returns 404 because
+A1  OPEN      Signing is ready (see DONE). Left: create the app in Play Console (Play App
+              Signing on), upload app-release.aab to an internal testing track, install it
+              from there and check Settings reads VERSION 2.0 (2). Rebuild first: the bundle
+              from before A5 still has the test-notification row. Bump versionCode (now 2)
+              on every upload; Play rejects a repeat.
+A2  OPEN      ridelirium.com/.well-known/assetlinks.json returns 404 because
               ANDROID_CERT_SHA256 is not set, so invite links do not open the Android app.
-              After the first upload, put the Play app-signing SHA-256 in the server .env.
+              After the first upload, put the Play app-signing SHA-256 (Play Console > Setup >
+              App signing; not the upload key) in the server .env and run the server
+              deploy.sh. Then ridelirium.com/.well-known/assetlinks.json must return 200.
 A3  CHECK     Maps API key: if it is restricted by package + SHA-1, add the Play app-signing
               SHA-1 in Google Cloud, or the map is blank in store installs.
-A4  DECIDE    FACEBOOK_APP_ID is empty in local.properties, so Facebook Story share fails
-              (StoryShare.kt:15). Get a Meta app id or hide the Facebook target.
-A5  OPEN      "SEND TEST NOTIFICATION" shows in release builds (SettingsScreen.kt:190).
-              Gate it behind BuildConfig.DEBUG. Same as G2 in IOS_ANDROID_DIFF.txt.
 A6  OPTIONAL  R8 is off for release (optimization enable = false). Works, larger APK.
 A7  OPEN      Play Console forms:
                 - Data safety: precise location, name, device or other IDs, crash logs and
                   diagnostics (Firebase Crashlytics; not shared, not for ads).
                 - Foreground service declaration for the location type (needs a demo video).
                 - Content rating, target audience, privacy policy URL.
-A8  CHECK     If the Play developer account is personal and was created after Nov 2023,
+A8  CHECK     Has a long lead time, so check it first. If the Play developer account is personal and was created after Nov 2023,
               Google requires a closed test with 12 testers for 14 days before production.
+
+B10 OPEN      Everything since e1263c4 is uncommitted on release/2.0 (Settings version footer
+              and scroll, ridelirium.com invite links, signing config, A5). Commit it, and
+              commit build_number.txt (it bumps on every iOS build). Never commit
+              keystore.properties or the .jks (gitignored).
 
 AFTER THE STORE LISTINGS EXIST
 ------------------------------
-L1  OPEN      Replace APP_STORE_URL_HERE and GOOGLE_PLAY_URL_HERE in RiDelirium-Web/index.html
-              (lines 39-40 and 243-244), then redeploy the site.
-L2  OPEN      Set APP_STORE_URL and PLAY_STORE_URL in the server .env so the /join/CODE page
-              shows store buttons.
+L1  OPEN      Replace GOOGLE_PLAY_URL_HERE in RiDelirium-Web/index.html (lines 40 and 243)
+              and put the Play link on the "~*android" line in RiDelirium-Web/deploy/site.conf
+              (the ridelirium.app/get redirect), then redeploy the site. The App Store link
+              is in (see DONE).
+L2  OPEN      Set PLAY_STORE_URL in the server .env (or as the default in docker-compose.yml,
+              like APP_STORE_URL) so the /join/CODE page shows the Android button too.
 
-BEFORE PAID PASSES (CREW+, CLUB)
---------------------------------
-C1  LATER     Selling passes makes you a trader under the DSA: both stores then show name,
-              address, phone and email on EU listings. Before that:
-                - Register a company (Bulgarian ЕООД; not ЕТ, whose name must contain yours).
-                  Keep it dormant (yearly no-activity declaration) until money comes in.
-                - Ask an accountant first about VAT registration under ЗДДС Art. 97a (store
-                  payouts from Apple and Google in Ireland) and owner social contributions.
-                - Get a D-U-N-S number, move the Apple account to Organization, declare
-                  trader with the company details in both stores.
-                - Name the company as publisher in privacy.html and the footers.
-
-NOT BLOCKING
-------------
-Open parity items in IOS_ANDROID_DIFF.txt (T2-T6, S1-S6, R1-R7, D2, N4) are polish and do not
-block either store.
+DONE
+----
+B1  2026-11-20  Website placeholders ("YOUR NAME OR COMPANY", the yellow "Before you
+                publish" box, owner TODO comments on privacy, support and index pages).
+                Published under the brand only, no personal name, no country: privacy.html
+                says "RiDelirium is an independent app", contact is "RiDelirium" + support
+                email, footers read "© 2026 RiDelirium".
+B2  2026-11-20  support@ridelirium.app receives mail.
+B3  2026-11-20  Privacy policy did not mention Firebase Crashlytics, which both apps ship
+                (release builds only). Added to privacy.html: short version, a "Crash
+                reports" table row, the third-party list, 90-day retention, effective date
+                November 20, 2026. iOS PrivacyInfo.xcprivacy declares Crash Data;
+                DISTRIBUTE.md App Privacy lists Crash Data and Device ID. The stale "Nearby
+                riders" row and the landing page's nearby-join claim were removed too.
+                Committed in e1263c4; going live is B8.
+B4  2026-11-20  In-app delete of data (Apple 5.1.1(v), Play account deletion policy).
+                "DELETE MY RIDE TOGETHER DATA" in Settings on iOS and Android calls
+                DELETE /v1/riders/me; the server takes the rider out of every crew
+                (crew-mates get "left", ownership passes on) and cascades memberships,
+                waits, devices, Live Activity token and recent riders. The phone forgets
+                name, token, id and crews; rides stay. Committed in e1263c4.
+B5  2026-11-20  Commit part: the uncommitted work on release/2.0 is committed (a6cb779 crew
+                meet points, stay picker, landscape; 65236f6 iOS app in this repo, schema,
+                deploy scripts; e1263c4 data deletion and privacy pages). Deploy part is
+                still open above.
+B7  2026-11-20  Apple account type checked: Individual. The App Store shows your legal
+                name as seller until the account moves to Organization (C1 in NEXT_VERSION.txt).
+I2  2026-11-20  Review notes in DISTRIBUTE.md rewritten for crews: NEW CREW / JOIN CREW,
+                QR or 8-character code, share-until time, meet point, WAIT, Settings >
+                DELETE MY RIDE TOGETHER DATA, what camera, HealthKit and notifications are
+                for. "MY CODE" and the nearby wording are gone.
+I3  2026-11-20  Snowboard-only wording. NSHealthUpdateUsageDescription (iPhone and watch)
+                now reads "RiDelirium saves the workout your Apple Watch records during a
+                ride to Health." Keywords add bike, hiking, walk, crew, friends (89 of 100
+                characters). Subtitle "Track runs, speed and friends" kept. Follow-up:
+                the watch saved every workout as Snowboarding; fixed for 2.0 (F3 in
+                NEXT_VERSION.txt).
+I5  2026-11-20  TestFlight on a real device: record a ride, join a crew by code, watch app,
+                Live Activity, Delete my Ride Together data. All fine.
+I1  2026-11-20  App Store Connect > App Privacy filled in: Name, User ID, Precise Location, plus
+                Crash Data and Device ID from Crashlytics; all App Functionality, not linked
+                to identity, no tracking (as in DISTRIBUTE.md and PrivacyInfo.xcprivacy).
+I4  2026-11-20  App Store screenshots ready: iPhone 6.9" and 6.5", Apple Watch.
+A5  2026-11-20  "SEND TEST NOTIFICATION" in Android Settings is gated behind BuildConfig.DEBUG
+                (SettingsScreen.kt), so release builds do not show it. Debug and release compile.
+A1a 2026-11-20  Android release signing: upload keystore created (kept outside the repo),
+                app/build.gradle.kts reads the gitignored keystore.properties (template:
+                keystore.properties.example) and signs release builds with it; without the
+                file release builds are unsigned, so debug and CI still work. A signed
+                app-release.aab (version 2.0, versionCode 2) was built with
+                ./gradlew :app:bundleRelease and checked with keytool -printcert. Upload to
+                Play is still A1.
+B11 2026-11-20  Invite links moved from ridersapi.sportco.net to https://ridelirium.com/join/CODE.
+                iOS entitlement and InviteLink, Android manifest and InviteLink (+ tests),
+                the website nginx proxies /join/ and the two /.well-known/ files to the API
+                (site.conf), the API answers them only for INVITE_HOST (default
+                ridelirium.com; 404 on the API's own address). Server and website deployed;
+                checked live: apple-app-site-association 200 over valid TLS with no redirect,
+                ridersapi.sportco.net/join and /.well-known return 404. Android assetlinks is A2.
+B12 2026-11-20  Settings shows VERSION x.y (build) at the bottom on iOS and Android, and iOS
+                Settings now scrolls so the line is reachable in portrait. Needs a new build
+                of each app to ship.
+A4  2026-11-20  FACEBOOK_APP_ID was empty, so Facebook Story share failed. Decided: no
+                Instagram / Facebook sharing for now, both apps. SHARE opens the system
+                share sheet with the 4:5 ride card and text. Removed the Story targets, the
+                Meta app id (Android build config, iOS Info.plist and build setting), the
+                Android <queries> and iOS LSApplicationQueriesSchemes, the Meta line in
+                privacy.html and the Story copy on the landing and support pages. The 9:16
+                Story card renderer stays for F2 in NEXT_VERSION.txt. Android compiles, iOS builds.
+L1  2026-11-20  App Store part: https://apps.apple.com/us/app/ridelirium/id1080784776 is on
+                both App Store buttons of index.html (live after B8).
+L2  2026-11-20  App Store part: APP_STORE_URL defaults to the App Store link in
+                docker-compose.yml, so the /join/CODE page shows "Download for iPhone" after
+                the next server deploy (B5), without touching the NAS .env.
+B5  2026-11-20  Deploy part: server deployed with RiDelirium-Server/deploy.sh. ridersapi
+                (healthy, answers 401) and ridersapi-sweeper (sweep.php every minute, no
+                errors in its log) are running. Production DB already had the walk sport and
+                the crew meet columns. APP_STORE_URL default is live on the /join pages.
+B8  2026-11-20  Website redeployed and checked live: privacy page covers Crashlytics, has no
+                Nearby riders or Meta line, says "in no crew, nothing is sent", effective
+                November 20, 2026; landing and support pages have no Story sharing or nearby
+                joining, no "snowboarding workout"; both App Store buttons link to the app.

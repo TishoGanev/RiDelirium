@@ -6,8 +6,8 @@
 import Foundation
 import HealthKit
 
-/// Runs a snowboarding workout on the watch while the phone is tracking, which supplies live heart rate
-/// and keeps the app running in the background.
+/// Runs a workout of the rider's sport on the watch while the phone is tracking, which supplies live heart
+/// rate and keeps the app running in the background.
 final class WorkoutManager: NSObject, ObservableObject, HKWorkoutSessionDelegate, HKLiveWorkoutBuilderDelegate {
     @Published private(set) var heartRate: Double?
     /// Average over the running workout; nil until the first sample.
@@ -18,6 +18,8 @@ final class WorkoutManager: NSObject, ObservableObject, HKWorkoutSessionDelegate
     private var builder: HKLiveWorkoutBuilder?
     private var starting = false
     private var monitorQuery: HKAnchoredObjectQuery?
+    /// The workout type for the next start; a running workout keeps the type it began with.
+    private var activityType: HKWorkoutActivityType = .snowboarding
 
     private let heartRateType = HKQuantityType(.heartRate)
 
@@ -45,9 +47,10 @@ final class WorkoutManager: NSObject, ObservableObject, HKWorkoutSessionDelegate
         monitorQuery = query
     }
 
-    /// Follow the phone's tracking state.
-    func sync(tracking: Bool, paused: Bool) {
+    /// Follow the phone's tracking state. [sport] is the phone's `Sport` raw value; nil from an older phone app.
+    func sync(tracking: Bool, paused: Bool, sport: String?) {
         guard HKHealthStore.isHealthDataAvailable() else { return }
+        activityType = Self.activityType(for: sport)
         if tracking {
             if session == nil {
                 start()
@@ -78,7 +81,7 @@ final class WorkoutManager: NSObject, ObservableObject, HKWorkoutSessionDelegate
     private func begin() {
         guard session == nil else { return }
         let configuration = HKWorkoutConfiguration()
-        configuration.activityType = .snowboarding
+        configuration.activityType = activityType
         configuration.locationType = .outdoor
         do {
             let session = try HKWorkoutSession(healthStore: store, configuration: configuration)
@@ -94,6 +97,16 @@ final class WorkoutManager: NSObject, ObservableObject, HKWorkoutSessionDelegate
         } catch {
             session = nil
             builder = nil
+        }
+    }
+
+    /// Health and Fitness file the workout under the rider's sport; snowboarding when it isn't known.
+    private static func activityType(for sport: String?) -> HKWorkoutActivityType {
+        switch sport {
+        case "ski": .downhillSkiing
+        case "bike": .cycling
+        case "walk": .walking
+        default: .snowboarding
         }
     }
 

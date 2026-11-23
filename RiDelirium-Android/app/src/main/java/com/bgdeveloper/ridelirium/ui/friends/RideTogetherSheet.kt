@@ -408,7 +408,7 @@ private fun CrewDetail(
             }
             Text(formatCode(crew.code), style = sb(36, FontWeight.ExtraBold, tracking = 0.1f, tabular = true), color = Sb.Charcoal)
             Text(
-                "Let friends scan this, or add someone you rode with.",
+                "Let friends scan this or open your invite link, or add someone you rode with.",
                 style = sb(15, FontWeight.SemiBold), color = Sb.Secondary, textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                 modifier = Modifier.widthIn(max = 300.dp),
             )
@@ -573,7 +573,7 @@ private fun ShareTab(url: String?, code: String?, joinBanner: String?, failed: B
         }
         Text(formatCode(code), style = sb(38, FontWeight.ExtraBold, tracking = 0.1f, tabular = true), color = Sb.Charcoal)
         Text(
-            "Friends scan with their camera or in RiDelirium. They appear in the crew as soon as they join.",
+            "Friends scan with their camera or in RiDelirium, or open the invite link you send them. They appear in the crew as soon as they join.",
             style = sb(16, FontWeight.SemiBold), color = Sb.Secondary, textAlign = androidx.compose.ui.text.style.TextAlign.Center,
             modifier = Modifier.widthIn(max = 300.dp),
         )
@@ -597,7 +597,7 @@ private fun ShareTab(url: String?, code: String?, joinBanner: String?, failed: B
 private fun JoinTab(isJoining: Boolean, onCode: (String) -> Unit) {
     val context = LocalContext.current
     var typed by remember { mutableStateOf("") }
-    Text("Scan the QR code on your friend's screen, or type their 8-character code.", style = sb(17, FontWeight.SemiBold), color = Sb.Secondary)
+    Text("Scan the QR code on your friend's screen, open their invite link, or type their 8-character code.", style = sb(17, FontWeight.SemiBold), color = Sb.Secondary)
     BigButton(if (isJoining) "JOINING…" else "SCAN QR CODE", Sb.Red, Color.White) {
         if (isJoining) return@BigButton
         val options = GmsBarcodeScannerOptions.Builder().setBarcodeFormats(Barcode.FORMAT_QR_CODE).build()

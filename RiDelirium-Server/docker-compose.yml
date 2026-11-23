@@ -1,29 +1,42 @@
+# What the API and the sweeper share: the same image, settings and secrets.
+x-api: &api
+  build: .
+  restart: unless-stopped
+  environment:
+    DB_DSN: ${DB_DSN}
+    DB_USER: ${DB_USER}
+    DB_PASS: ${DB_PASS}
+    RATE_SALT: ${RATE_SALT}
+    APNS_KEY_FILE: /run/secrets/apns.p8
+    APNS_KEY_ID: ${APNS_KEY_ID:-}
+    APNS_TEAM_ID: ${APNS_TEAM_ID:-}
+    APNS_TOPIC: ${APNS_TOPIC:-com.bgdeveloper.thesnowboarder}
+    FCM_KEY_FILE: /run/secrets/fcm.json
+    FCM_PROJECT_ID: ${FCM_PROJECT_ID:-}
+    ANDROID_CERT_SHA256: ${ANDROID_CERT_SHA256:-}
+    ANDROID_PACKAGE: ${ANDROID_PACKAGE:-com.bgdeveloper.ridelirium}
+    APP_STORE_URL: ${APP_STORE_URL:-https://apps.apple.com/us/app/ridelirium/id1080784776}
+    PLAY_STORE_URL: ${PLAY_STORE_URL:-}
+    INVITE_HOST: ${INVITE_HOST:-ridelirium.com}
+  volumes:
+    - ./apns.p8:/run/secrets/apns.p8:ro
+    - ./fcm.json:/run/secrets/fcm.json:ro
+  extra_hosts:
+    - "host.docker.internal:host-gateway"
+  networks: [proxy]
+
 services:
   ridersapi:
-    build: .
+    <<: *api
     container_name: ridersapi
-    restart: unless-stopped
-    environment:
-      DB_DSN: ${DB_DSN}
-      DB_USER: ${DB_USER}
-      DB_PASS: ${DB_PASS}
-      RATE_SALT: ${RATE_SALT}
-      APNS_KEY_FILE: /run/secrets/apns.p8
-      APNS_KEY_ID: ${APNS_KEY_ID:-}
-      APNS_TEAM_ID: ${APNS_TEAM_ID:-}
-      APNS_TOPIC: ${APNS_TOPIC:-com.bgdeveloper.thesnowboarder}
-      FCM_KEY_FILE: /run/secrets/fcm.json
-      FCM_PROJECT_ID: ${FCM_PROJECT_ID:-}
-      ANDROID_CERT_SHA256: ${ANDROID_CERT_SHA256:-}
-      ANDROID_PACKAGE: ${ANDROID_PACKAGE:-com.bgdeveloper.ridelirium}
-      APP_STORE_URL: ${APP_STORE_URL:-}
-      PLAY_STORE_URL: ${PLAY_STORE_URL:-}
-    volumes:
-      - ./apns.p8:/run/secrets/apns.p8:ro
-      - ./fcm.json:/run/secrets/fcm.json:ro
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    networks: [proxy]
+
+  # Every minute: ends memberships whose time ran out (the crew is told), tidies crews and deletes old positions.
+  sweeper:
+    <<: *api
+    container_name: ridersapi-sweeper
+    command: ["sh", "-c", "while true; do php /var/www/html/sweep.php; sleep 60; done"]
+    healthcheck:
+      disable: true
 
 networks:
   proxy:

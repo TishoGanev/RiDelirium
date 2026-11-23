@@ -190,11 +190,14 @@ fun SettingsScreen(onOpenAbout: () -> Unit, viewModel: SettingsViewModel = hiltV
             Text("BACKGROUND & BATTERY", style = sb(18), color = Sb.Charcoal, modifier = Modifier.weight(1f))
             Chevron(Modifier.padding(end = 4.dp), size = 10.dp)
         }
-        SettingsRow(onClick = {
-            CrewNotifications.show(context, mapOf("title" to "RiDelirium", "body" to "Test notification", "event" to "test"))
-            testSent = true
-        }) {
-            Text(if (testSent) "TEST SENT · NOTHING SHOWN? TAP NOTIFICATIONS" else "SEND TEST NOTIFICATION", style = sb(15), color = Sb.Charcoal, modifier = Modifier.weight(1f))
+        // Debug builds only: a developer aid, not for riders.
+        if (BuildConfig.DEBUG) {
+            SettingsRow(onClick = {
+                CrewNotifications.show(context, mapOf("title" to "RiDelirium", "body" to "Test notification", "event" to "test"))
+                testSent = true
+            }) {
+                Text(if (testSent) "TEST SENT · NOTHING SHOWN? TAP NOTIFICATIONS" else "SEND TEST NOTIFICATION", style = sb(15), color = Sb.Charcoal, modifier = Modifier.weight(1f))
+            }
         }
         SettingsRow(onClick = onOpenAbout) {
             Text("ABOUT RIDELIRIUM", style = sb(18), color = Sb.Charcoal, modifier = Modifier.weight(1f))
@@ -205,6 +208,11 @@ fun SettingsScreen(onOpenAbout: () -> Unit, viewModel: SettingsViewModel = hiltV
             Text("DELETE MY RIDE TOGETHER DATA", style = sb(16), color = Sb.Red, maxLines = 2, modifier = Modifier.weight(1f))
             if (deleting) CircularProgressIndicator(Modifier.size(20.dp), color = Sb.Red, strokeWidth = 2.dp)
         }
+        Text(
+            "VERSION ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
+            style = sb(13, tracking = 0.08f), color = Sb.Secondary, textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth().padding(vertical = 20.dp),
+        )
         }
         if (landscape) {
             Box(Modifier.height(10.dp))

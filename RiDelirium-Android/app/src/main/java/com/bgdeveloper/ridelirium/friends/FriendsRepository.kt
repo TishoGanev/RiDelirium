@@ -7,6 +7,7 @@ import androidx.lifecycle.ProcessLifecycleOwner
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import com.bgdeveloper.ridelirium.push.PushSetup
+import com.bgdeveloper.ridelirium.push.StayReminder
 import com.bgdeveloper.ridelirium.tracking.TrackingEngine
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
@@ -81,7 +82,7 @@ data class FriendsState(
  */
 @Singleton
 class FriendsRepository @Inject constructor(
-    @ApplicationContext context: Context,
+    @ApplicationContext private val context: Context,
     private val engine: TrackingEngine,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
@@ -159,6 +160,8 @@ class FriendsRepository @Inject constructor(
         scope.launch { refresh() }
         scope.launch { watchSharing() }
         scope.launch { registerPush() }
+        // "Sharing ends in 10 minutes" follows every change of the crews or of how long I stay in them.
+        scope.launch { _state.map { it.crews }.distinctUntilChanged().collect { StayReminder.sync(context, it) } }
         // The server may not know what this rider rides yet (or has the default); tell it, quietly.
         scope.launch { if (name != null) runCatching { authorized { api.updateSport(it, _state.value.mySport) } } }
     }
@@ -454,11 +457,11 @@ class FriendsRepository @Inject constructor(
         val foreground = isStarted(process).distinctUntilChanged()
         val tracking = engine.state.map { it.isTracking }.distinctUntilChanged()
         // Being in any crew counts, even alone in it: the rider is waiting for people to join, so their position
-        // is already on the server when the first one does.
+        // is already on the server when the first one does. In no crew nothing is sent, recording or not.
         val inCrew = _state.map { it.crews.isNotEmpty() }.distinctUntilChanged()
 
         var wasSharing = false
-        combine(tracking, inCrew, foreground) { t, crew, fg -> (t || (crew && fg)) to fg }
+        combine(tracking, inCrew, foreground) { t, crew, fg -> (crew && (t || fg)) to fg }
             .distinctUntilChanged()
             .collectLatest { (sharing, fg) ->
                 if (sharing) {
@@ -532,6 +535,6 @@ class FriendsRepository @Inject constructor(
         const val NO_NAME = "Add your name first to ride together."
         const val NO_SIGNAL = "We are offline. Check your signal and try again."
         const val TOO_MANY_CREWS = "You are in 10 crews already. Leave one first."
-        const val CREW_FULL = "That crew is full (3 riders), or you are in 10 crews already."
+        const val CREW_FULL = "That crew is full, or you are in 10 crews already."
     }
 }

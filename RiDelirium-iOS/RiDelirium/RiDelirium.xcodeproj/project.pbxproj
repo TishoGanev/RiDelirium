@@ -918,7 +918,6 @@
 				DEVELOPMENT_TEAM = JKQQJ48844;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
-				FACEBOOK_APP_ID = "";
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = RiDelirium/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = RiDelirium;
@@ -926,7 +925,7 @@
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.sports";
 				INFOPLIST_KEY_NSCameraUsageDescription = "RiDelirium uses the camera to scan a friend's code so you can ride together.";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "RiDelirium shows the downhill distance your Apple Watch recorded for each ride.";
-				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "RiDelirium saves your snowboarding sessions to Health.";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "RiDelirium saves the workout your Apple Watch records during a ride to Health.";
 				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "RiDelirium uses your location to track your runs, including while the app is in the background.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "RiDelirium uses your location to track your runs on the map.";
 				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
@@ -968,7 +967,6 @@
 				DEVELOPMENT_TEAM = JKQQJ48844;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
-				FACEBOOK_APP_ID = "";
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = RiDelirium/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = RiDelirium;
@@ -976,7 +974,7 @@
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.sports";
 				INFOPLIST_KEY_NSCameraUsageDescription = "RiDelirium uses the camera to scan a friend's code so you can ride together.";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "RiDelirium shows the downhill distance your Apple Watch recorded for each ride.";
-				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "RiDelirium saves your snowboarding sessions to Health.";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "RiDelirium saves the workout your Apple Watch records during a ride to Health.";
 				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "RiDelirium uses your location to track your runs, including while the app is in the background.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "RiDelirium uses your location to track your runs on the map.";
 				INFOPLIST_KEY_NSSupportsLiveActivities = YES;

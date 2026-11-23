@@ -46,7 +46,7 @@ enum Push {
 final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
         UNUserNotificationCenter.current().delegate = self
-        UNUserNotificationCenter.current().setNotificationCategories(WaitNotification.categories)
+        UNUserNotificationCenter.current().setNotificationCategories(WaitNotification.categories.union(StayReminder.categories))
         // "OK, waiting" on the lock screen runs here, even when the app was not open.
         WaitCoordinator.accept = { id in
             if let store = FriendsStore.current {
@@ -85,6 +85,11 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         let info = response.notification.request.content.userInfo
         if response.actionIdentifier == WaitNotification.acceptAction, let id = info["waitId"] as? String {
             await WaitCoordinator.accept?(id)
+        } else if response.actionIdentifier == StayReminder.extendAction,
+                  let crewID = info["crewId"] as? String, let endsAt = info["endsAt"] as? Double {
+            await StayReminder.extend(crewID: crewID, from: Date(timeIntervalSince1970: endsAt))
+        } else if info["event"] as? String == StayReminder.event {
+            await MainActor.run { FriendsStore.current?.isShowingRideTogether = true }
         } else if info["event"] as? String == "invite", let code = info["code"] as? String {
             NotificationCenter.default.post(name: .invitePushOpened, object: nil, userInfo: ["code": code])
         } else {

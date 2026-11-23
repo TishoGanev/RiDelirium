@@ -30,6 +30,8 @@ nonisolated struct WatchState: Codable, Equatable {
     var hasFix = false
     /// Distance of the last finished ride, shown on the watch face while idle.
     var lastRideDistance: Double?
+    /// What the rider rides (`Sport` raw value: ski, board, bike, walk); picks the watch workout type.
+    var sport: String?
 
     static let messageKey = "state"
 

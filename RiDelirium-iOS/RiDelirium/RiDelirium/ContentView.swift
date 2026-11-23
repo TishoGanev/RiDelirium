@@ -109,10 +109,10 @@ struct ContentView: View {
         }
     }
 
-    /// Your position goes to your crew as soon as you are riding with someone, recording a ride, or waiting for
-    /// someone to join your invite.
+    /// Your position goes to your crew while you are in one, even alone in it waiting for someone to join.
+    /// In no crew nothing is sent, recording or not: nobody could see it.
     private func updateSharing() {
-        friends.setSharing(tracker.isTracking || !friends.friends.isEmpty || friends.isInviting, location: { tracker.currentLocation })
+        friends.setSharing(!friends.crews.isEmpty, location: { tracker.currentLocation })
     }
 
     private func handle(_ url: URL) {

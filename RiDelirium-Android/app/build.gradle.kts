@@ -8,12 +8,11 @@ plugins {
     alias(libs.plugins.firebase.crashlytics)
 }
 
-// Keys live in the gitignored local.properties: MAPS_API_KEY, FACEBOOK_APP_ID.
+// Keys live in the gitignored local.properties: MAPS_API_KEY.
 val localProps = Properties().apply {
     rootProject.file("local.properties").takeIf { it.exists() }?.inputStream()?.use { load(it) }
 }
 val mapsApiKey = localProps.getProperty("MAPS_API_KEY", "")
-val facebookAppId = localProps.getProperty("FACEBOOK_APP_ID", "")
 // Ride Together API (Server/api), e.g. https://example.com/v1. Leave empty to disable friends.
 val apiBaseUrl = localProps.getProperty("API_BASE_URL", "")
 // Firebase Cloud Messaging for "joined / left your crew" alerts. All four from the Firebase app settings; leave empty to disable push.
@@ -21,6 +20,11 @@ val fcmProjectId = localProps.getProperty("FCM_PROJECT_ID", "")
 val fcmAppId = localProps.getProperty("FCM_APP_ID", "")
 val fcmApiKey = localProps.getProperty("FCM_API_KEY", "")
 val fcmSenderId = localProps.getProperty("FCM_SENDER_ID", "")
+// Play upload key: storeFile, storePassword, keyAlias, keyPassword in the gitignored keystore.properties
+// (see keystore.properties.example). Without it release builds are simply unsigned, so debug and CI builds still work.
+val keystoreProps = Properties().apply {
+    rootProject.file("keystore.properties").takeIf { it.exists() }?.inputStream()?.use { load(it) }
+}
 
 android {
     namespace = "com.bgdeveloper.ridelirium"
@@ -37,7 +41,6 @@ android {
 
         manifestPlaceholders["mapsApiKey"] = mapsApiKey
         manifestPlaceholders["fileProviderAuthority"] = "com.bgdeveloper.ridelirium.fileprovider"
-        buildConfigField("String", "FACEBOOK_APP_ID", "\"$facebookAppId\"")
         buildConfigField("String", "API_BASE_URL", "\"$apiBaseUrl\"")
         buildConfigField("String", "FCM_PROJECT_ID", "\"$fcmProjectId\"")
         buildConfigField("String", "FCM_APP_ID", "\"$fcmAppId\"")
@@ -48,8 +51,20 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        if (keystoreProps.isNotEmpty()) {
+            create("release") {
+                storeFile = rootProject.file(keystoreProps.getProperty("storeFile"))
+                storePassword = keystoreProps.getProperty("storePassword")
+                keyAlias = keystoreProps.getProperty("keyAlias")
+                keyPassword = keystoreProps.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
+            signingConfigs.findByName("release")?.let { signingConfig = it }
             optimization {
                 enable = false
             }

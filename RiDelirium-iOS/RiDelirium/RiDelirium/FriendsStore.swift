@@ -15,7 +15,10 @@ final class FriendsStore: ObservableObject {
     /// You, as crew-mates see you. Nil until the rider has entered a name.
     @Published private(set) var me: Friend?
     /// Every crew you are in, most recently joined first.
-    @Published private(set) var crews: [Crew] = []
+    @Published private(set) var crews: [Crew] = [] {
+        // "Sharing ends in 10 minutes" follows every change of the crews or of how long I stay in them.
+        didSet { if crews != oldValue { StayReminder.sync(crews) } }
+    }
     /// The crew the map shows; you switch it in Ride Together.
     @Published private(set) var selectedCrewID: String? = UserDefaults.standard.string(forKey: "selectedCrew")
     /// Members of the selected crew, without you: what the map, the crew pill, WAIT and the watch work with.

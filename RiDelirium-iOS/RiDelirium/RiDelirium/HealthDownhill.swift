@@ -8,7 +8,8 @@ import HealthKit
 import Combine
 
 /// Reads the downhill distance Apple Health holds for a ride's time window. The watch app records a
-/// snowboarding workout while the phone tracks, and watchOS fills in this quantity itself.
+/// workout of the rider's sport while the phone tracks; for snowboarding and skiing watchOS fills in
+/// this quantity itself.
 @MainActor
 final class HealthDownhill: ObservableObject {
     /// Metres, or nil when Health has nothing for the ride (no watch, no permission, no data).
