@@ -13,6 +13,9 @@ import java.time.Instant
  *   accuracy, course and activity columns; invalid values are empty fields. Read with `comment='#'` in pandas.
  * - 3: as 2, but `timestamp` is unix time in seconds with milliseconds (`1792000000.950`).
  * - 4: as 3, plus `g_force`: peak total G-force since the previous row, gravity included (1.0 at rest); empty without an accelerometer.
+ *
+ * Comment lines are free-form `# key: value` pairs and readers skip them, so a new one needs no version bump.
+ * `# sport: ski|board|bike|walk` (walk is the hike sport) is written when the sport of the recording is known.
  */
 object TrackCsv {
     const val FORMAT_VERSION = 4
@@ -58,9 +61,10 @@ object TrackCsv {
 }
 
 /** Facts about one recording that the points themselves don't carry. */
-data class SessionMetadata(val rejectedLowAccuracy: Int = 0, val rejectedStale: Int = 0) {
+data class SessionMetadata(val rejectedLowAccuracy: Int = 0, val rejectedStale: Int = 0, val sport: String? = null) {
     val commentLines: List<String>
-        get() = listOf("# rejected_low_accuracy: $rejectedLowAccuracy", "# rejected_stale: $rejectedStale")
+        get() = listOf("# rejected_low_accuracy: $rejectedLowAccuracy", "# rejected_stale: $rejectedStale") +
+            listOfNotNull(sport?.let { "# sport: $it" })
 }
 
 /**

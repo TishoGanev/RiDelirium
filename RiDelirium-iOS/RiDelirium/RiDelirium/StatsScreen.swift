@@ -18,6 +18,12 @@ struct SessionSummary: Identifiable {
     var maxSpeed: Double { analysis.segments.isEmpty ? (points.map(\.speed).max() ?? 0) : analysis.movingMaxSpeed }
     var coordinates: [CLLocationCoordinate2D] { points.map(\.coordinate) }
 
+    /// What the rider rode, as stored with the recording. Rides saved before it was stored fall back to the
+    /// sport currently chosen in Settings.
+    var sport: Sport {
+        points.first?.sport.flatMap(Sport.init(rawValue:)) ?? Sport.saved
+    }
+
     /// Stable across launches even if a deleted session's number is reused.
     var placeKey: String { "\(session)-\(Int(startDate.timeIntervalSince1970))" }
 
@@ -372,7 +378,11 @@ struct StatsScreen: View {
     }
 
     private func showProgressInsights(for sessions: [SessionSummary]) {
-        let facts = RideInsightFacts(period: sessions.map(DayMetrics.init), rangeTitle: range.title, units: units)
+        // Progress only makes sense within one sport, so a mixed period is summarised for the sport ridden most.
+        let counts = Dictionary(grouping: sessions, by: \.sport).mapValues(\.count)
+        let sport = counts.max { $0.value < $1.value }?.key ?? Sport.saved
+        let rides = sessions.filter { $0.sport == sport }
+        let facts = RideInsightFacts(period: rides.map(DayMetrics.init), rangeTitle: range.title, units: units, sport: sport)
         periodInsights = PeriodInsights(rangeTitle: range.title, facts: facts, model: RideInsightsModel())
     }
 

@@ -144,7 +144,7 @@ class DailyStatsViewModel @Inject constructor(
             val uri = withContext(Dispatchers.IO) {
                 ShareFiles.save(context, "RiDelirium-${session.startDate}-session-$sessionId.csv") { out ->
                     val writer = out.bufferedWriter()
-                    writer.write(TrackCsv.csv(session.points, sessionMetadata.load(sessionId)))
+                    writer.write(TrackCsv.csv(session.points, sessionMetadata.load(sessionId).copy(sport = session.sport.key)))
                     writer.flush()
                 }
             }

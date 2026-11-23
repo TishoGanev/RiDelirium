@@ -42,9 +42,9 @@ ANDROID
 -------
 A1  OPEN      Signing is ready (see DONE). Left: create the app in Play Console (Play App
               Signing on), upload app-release.aab to an internal testing track, install it
-              from there and check Settings reads VERSION 2.0 (2). Rebuild first: the bundle
-              from before A5 still has the test-notification row. Bump versionCode (now 2)
-              on every upload; Play rejects a repeat.
+              from there and check Settings reads VERSION 2.0.0 (the BUILD_NUMBER). Rebuild first: the bundle
+              from before A5 still has the test-notification row. Run ./bump_build_number.sh
+              before every upload (BUILD_NUMBER is the versionCode too); Play rejects a repeat.
 A2  OPEN      ridelirium.com/.well-known/assetlinks.json returns 404 because
               ANDROID_CERT_SHA256 is not set, so invite links do not open the Android app.
               After the first upload, put the Play app-signing SHA-256 (Play Console > Setup >
@@ -63,7 +63,7 @@ A8  CHECK     Has a long lead time, so check it first. If the Play developer acc
 
 B10 OPEN      Everything since e1263c4 is uncommitted on release/2.0 (Settings version footer
               and scroll, ridelirium.com invite links, signing config, A5). Commit it, and
-              commit build_number.txt (it bumps on every iOS build). Never commit
+              commit BUILD_NUMBER (shared by iOS, Android and the API). Never commit
               keystore.properties or the .jks (gitignored).
 
 AFTER THE STORE LISTINGS EXIST

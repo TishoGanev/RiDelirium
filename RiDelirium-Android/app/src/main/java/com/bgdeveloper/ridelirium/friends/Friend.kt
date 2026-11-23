@@ -9,10 +9,14 @@ enum class Sport(val key: String, val title: String, val activity: String) {
     SKI("ski", "SKI", "SKIING"),
     BOARD("board", "BOARD", "SNOWBOARDING"),
     BIKE("bike", "BIKE", "BIKING"),
-    WALK("walk", "WALK", "WALKING");
+    HIKE("walk", "HIKE", "HIKING");
 
     companion object {
         fun fromKey(key: String?): Sport? = entries.firstOrNull { it.key == key }
+
+        /** The rider's own choice, as saved on this phone (see [FriendsRepository.setSport]). */
+        fun saved(context: android.content.Context): Sport =
+            fromKey(context.getSharedPreferences("ridetogether", android.content.Context.MODE_PRIVATE).getString("sport", null)) ?: BOARD
     }
 }
 

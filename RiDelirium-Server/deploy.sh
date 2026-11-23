@@ -37,6 +37,11 @@ COPYFILE_DISABLE=1 tar --no-xattrs --exclude .DS_Store --exclude '*.md' --exclud
     -cf - Dockerfile docker-compose.yml .dockerignore api \
     | nas "mkdir -p $DIR && cd $DIR && tar -xf - 2>/dev/null"
 
+# The build number shared with the iOS and Android apps (BUILD_NUMBER at the repo root), served at GET /v1/version.
+if [ -f ../BUILD_NUMBER ]; then
+    nas "cat > $DIR/api/build_number.txt && chmod 644 $DIR/api/build_number.txt" < ../BUILD_NUMBER
+fi
+
 # The QNAP's SSH has no scp/sftp, so secrets are streamed through the shell instead.
 for secret in .env apns.p8 fcm.json; do
     if [ -f "$secret" ] && { [ "${SYNC_ENV:-}" = 1 ] || nas "[ ! -s $DIR/$secret ]"; }; then
@@ -51,4 +56,4 @@ nas "$REMOTE_ENV; [ -f apns.p8 ] || echo 'Note: no apns.p8 here, iOS push stays 
 
 echo "Checking"
 sleep 3
-nas "$REMOTE_ENV; docker exec ridersapi curl -s -o /dev/null -w 'API answered HTTP %{http_code} (401 is right)\n' http://localhost/v1/friends; docker logs --tail 5 ridersapi 2>&1"
+nas "$REMOTE_ENV; docker exec ridersapi curl -s -o /dev/null -w 'API answered HTTP %{http_code} (401 is right)\n' http://localhost/v1/friends; docker exec ridersapi curl -s http://localhost/v1/version; echo; docker logs --tail 5 ridersapi 2>&1"

@@ -10,6 +10,7 @@ import android.os.Looper
 import androidx.core.content.ContextCompat
 import com.bgdeveloper.ridelirium.data.RideRepository
 import com.bgdeveloper.ridelirium.data.SessionMetadataStore
+import com.bgdeveloper.ridelirium.friends.Sport
 import com.bgdeveloper.ridelirium.data.SettingsRepository
 import com.bgdeveloper.ridelirium.data.TrackPointEntity
 import com.bgdeveloper.ridelirium.domain.Activity
@@ -314,6 +315,7 @@ class TrackingEngine @Inject constructor(
             activity = sample?.kind?.csv,
             activityConfidence = sample?.confidence,
             gForce = peakG,
+            sport = Sport.saved(context).key,
         )
         scope.launch(Dispatchers.IO) { repository.addPoint(point) }
     }

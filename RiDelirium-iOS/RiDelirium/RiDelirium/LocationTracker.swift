@@ -296,7 +296,7 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
         let peakG = gSensor.takePeak()
         if let peakG { maxG = max(maxG ?? 0, peakG) }
         if let context = modelContext {
-            let point = TrackPoint(location: location, session: session, motion: motion.latest, gForce: peakG)
+            let point = TrackPoint(location: location, session: session, motion: motion.latest, gForce: peakG, sport: Sport.saved)
             context.insert(point)
             try? context.save()
         }

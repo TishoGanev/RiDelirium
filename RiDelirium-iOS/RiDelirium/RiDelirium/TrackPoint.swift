@@ -28,6 +28,8 @@ final class TrackPoint {
     var activityConfidence: Int?
     /// Highest total G-force (gravity included, about 1.0 at rest) since the previous point; nil without an accelerometer.
     var gForce: Double?
+    /// `Sport` raw value the rider had chosen when the fix arrived; nil on points saved before it was stored.
+    var sport: String?
 
     init(lat: Double, lon: Double, altitude: Double, speed: Double, timestamp: Date, session: Int) {
         self.lat = lat
@@ -38,7 +40,7 @@ final class TrackPoint {
         self.session = session
     }
 
-    convenience init(location: CLLocation, session: Int, motion: MotionSample? = nil, gForce: Double? = nil) {
+    convenience init(location: CLLocation, session: Int, motion: MotionSample? = nil, gForce: Double? = nil, sport: Sport? = nil) {
         self.init(
             lat: location.coordinate.latitude,
             lon: location.coordinate.longitude,
@@ -57,6 +59,7 @@ final class TrackPoint {
         activity = motion?.kind.rawValue
         activityConfidence = motion?.confidence
         self.gForce = gForce
+        self.sport = sport?.rawValue
     }
 
     var coordinate: CLLocationCoordinate2D {

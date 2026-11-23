@@ -77,6 +77,13 @@ final class TrackCSVTests: XCTestCase {
         XCTAssertEqual(lines[3], TrackCSV.columns.joined(separator: ","))
     }
 
+    func testCSVWritesSportLineOnlyWhenKnown() {
+        let known = TrackCSV.csv(points: [], metadata: SessionMetadata(sport: "walk")).components(separatedBy: "\n")
+        XCTAssertTrue(known.contains("# sport: walk"))
+        XCTAssertEqual(known[4], TrackCSV.columns.joined(separator: ","))
+        XCTAssertFalse(TrackCSV.csv(points: []).contains("# sport:"))
+    }
+
     // MARK: Two fixes in neighbouring seconds
 
     func testFixesAtPoint95AndPoint05GetDifferentTimestamps() {

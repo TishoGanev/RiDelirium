@@ -83,7 +83,7 @@ struct DayMetrics: Equatable {
 extension RideInsightFacts {
     /// Facts for many rides at once, aimed at how the rider is progressing. Trends compare the earlier
     /// rides with the later ones; the model only words what is worked out here.
-    init(period metrics: [DayMetrics], rangeTitle: String, units: Units) {
+    init(period metrics: [DayMetrics], rangeTitle: String, units: Units, sport: Sport = .board) {
         let days = metrics.filter { $0.runs > 0 }.sorted { $0.date < $1.date }
         var bullets: [String] = []
 
@@ -107,7 +107,7 @@ extension RideInsightFacts {
                 bullets.append("Only one ride day in this period, so there is no trend to show yet.")
             }
         }
-        self.init(bullets: bullets, prompt: Self.prompt(rangeTitle: rangeTitle, days: days, runs: runs, vertical: vertical, distance: distance, bullets: bullets, units: units), hasRuns: !days.isEmpty, isPeriod: true)
+        self.init(bullets: bullets, prompt: Self.prompt(rangeTitle: rangeTitle, sport: sport, days: days, runs: runs, vertical: vertical, distance: distance, bullets: bullets, units: units), hasRuns: !days.isEmpty, isPeriod: true, sport: sport)
     }
 
     private static func day(_ date: Date) -> String {
@@ -153,8 +153,9 @@ extension RideInsightFacts {
         return out
     }
 
-    private static func prompt(rangeTitle: String, days: [DayMetrics], runs: Int, vertical: Double, distance: Double, bullets: [String], units: Units) -> String {
+    private static func prompt(rangeTitle: String, sport: Sport, days: [DayMetrics], runs: Int, vertical: Double, distance: Double, bullets: [String], units: Units) -> String {
         var lines = [
+            "Sport: \(sport.activity.lowercased())",
             "Period: \(rangeTitle)",
             "Ride days with runs: \(days.count); runs \(runs); total descent \(units.altitude(meters: vertical)); downhill distance \(units.distance(meters: distance))",
         ]

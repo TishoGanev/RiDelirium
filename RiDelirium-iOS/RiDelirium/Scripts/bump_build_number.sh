@@ -1,35 +1,21 @@
 #!/bin/bash
 # Run-script phase for the app, widget and watch targets.
 #
-# Gives every target in one build the same, ever-increasing CFBundleVersion. The number lives in
-# build_number.txt (commit it, so builds from different machines keep counting up). The first
-# target to run bumps it; the others, starting seconds later, reuse that number, so the app and
-# its embedded widget and watch app always match. A build more than WINDOW seconds after the
-# previous bump counts as a new build.
+# Stamps the shared build number into the built product's Info.plist as CFBundleVersion, so the app, its
+# widget and its watch app always match each other and the Android app and the API. The number lives in
+# BUILD_NUMBER at the repo root; raise it with ./bump_build_number.sh there before an upload.
 set -euo pipefail
 
-WINDOW=60
-counter="${SRCROOT}/build_number.txt"
-lock="${TMPDIR:-/tmp}/ridelirium-build-number.lock"
-
-# Targets can build in parallel; only one may read-modify-write the counter at a time.
-for _ in $(seq 1 100); do
-    mkdir "$lock" 2>/dev/null && break
-    sleep 0.1
-done
-trap 'rmdir "$lock" 2>/dev/null || true' EXIT
-
+counter="${SRCROOT}/../../BUILD_NUMBER"
 if [ ! -f "$counter" ]; then
-    echo "${CURRENT_PROJECT_VERSION:-1}" > "$counter"
-    touch -t 197001010000 "$counter"   # so the first build bumps it
+    echo "error: $counter is missing" >&2
+    exit 1
 fi
 
 number=$(tr -dc '0-9' < "$counter")
-number=${number:-${CURRENT_PROJECT_VERSION:-1}}
-age=$(( $(date +%s) - $(stat -f %m "$counter") ))
-if [ "$age" -gt "$WINDOW" ]; then
-    number=$((number + 1))
-    echo "$number" > "$counter"
+if [ -z "$number" ]; then
+    echo "error: $counter holds no number" >&2
+    exit 1
 fi
 
 # Stamp the built product's Info.plist; this runs before code signing.

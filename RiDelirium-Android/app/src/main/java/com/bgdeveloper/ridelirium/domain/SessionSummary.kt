@@ -1,6 +1,7 @@
 package com.bgdeveloper.ridelirium.domain
 
 import com.bgdeveloper.ridelirium.data.TrackPointEntity
+import com.bgdeveloper.ridelirium.friends.Sport
 import com.google.android.gms.maps.model.LatLng
 import java.time.LocalDate
 import java.time.ZoneId
@@ -14,6 +15,12 @@ data class SessionSummary(val session: Int, val points: List<TrackPointEntity>) 
     val maxSpeed: Double
         get() = if (analysis.segments.isEmpty()) points.maxOfOrNull { it.speed } ?: 0.0 else analysis.movingMaxSpeed
     val coordinates: List<LatLng> get() = points.map { LatLng(it.lat, it.lon) }
+
+    /**
+     * What the rider rode, as stored with the recording. Rides saved before it was stored fall back to
+     * [Sport.BOARD] here; the iPhone falls back to the sport chosen in Settings, which Android has no context for.
+     */
+    val sport: Sport get() = Sport.fromKey(points.firstOrNull()?.sport) ?: Sport.BOARD
 
     /** Stable across launches even if a deleted session's number is reused. */
     val placeKey: String get() = "$session-${startMillis / 1000}"

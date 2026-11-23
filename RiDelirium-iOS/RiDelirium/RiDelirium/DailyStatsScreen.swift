@@ -47,7 +47,8 @@ struct DailyStatsScreen: View {
         }
         insightFacts = RideInsightFacts(
             analysis: analysis, points: session.points, placeName: placeName,
-            units: Units(metric: UserDefaults.standard.object(forKey: "unitsMetric") as? Bool ?? true)
+            units: Units(metric: UserDefaults.standard.object(forKey: "unitsMetric") as? Bool ?? true),
+            sport: session.sport
         )
         stillSpots = analysis.stills.map { coordinates[($0.startIndex + $0.endIndex) / 2] }
         _cameraPosition = State(initialValue: .rect(Self.routeRect(for: session.coordinates)))
@@ -511,7 +512,9 @@ struct DailyStatsScreen: View {
     }
 
     private func export() {
-        let csv = TrackCSV.csv(points: session.points, metadata: SessionMetadata.load(session: session.session))
+        var metadata = SessionMetadata.load(session: session.session)
+        metadata.sport = session.sport.rawValue
+        let csv = TrackCSV.csv(points: session.points, metadata: metadata)
         let day = session.startDate.formatted(.iso8601.year().month().day())
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("RiDelirium-\(day)-session-\(session.session).csv")

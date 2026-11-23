@@ -176,7 +176,7 @@ private val Sport.settingsIcon: Int
         Sport.SKI -> R.drawable.ic_settings_ski
         Sport.BOARD -> R.drawable.ic_settings_board
         Sport.BIKE -> R.drawable.ic_settings_bike
-        Sport.WALK -> R.drawable.ic_settings_walk
+        Sport.HIKE -> R.drawable.ic_settings_hike
     }
 
 /** Settings sits beside the tab bar as its own round button. */

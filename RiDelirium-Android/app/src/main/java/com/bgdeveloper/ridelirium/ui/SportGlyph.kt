@@ -21,5 +21,5 @@ val Sport.glyph: Int
         Sport.SKI -> R.drawable.ic_sport_ski
         Sport.BOARD -> R.drawable.ic_sport_board
         Sport.BIKE -> R.drawable.ic_sport_bike
-        Sport.WALK -> R.drawable.ic_sport_walk
+        Sport.HIKE -> R.drawable.ic_sport_hike
     }

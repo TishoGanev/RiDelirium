@@ -216,4 +216,12 @@ class TrackCsvTest {
     }
 
     // endregion
+
+    @Test
+    fun csvWritesSportLineOnlyWhenKnown() {
+        val known = TrackCsv.csv(emptyList(), SessionMetadata(sport = "walk")).split("\n")
+        assertTrue(known.contains("# sport: walk"))
+        assertEquals(TrackCsv.COLUMNS.joinToString(","), known[4])
+        assertFalse(TrackCsv.csv(emptyList()).contains("# sport:"))
+    }
 }

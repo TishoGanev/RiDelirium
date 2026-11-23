@@ -20,15 +20,19 @@ struct RideInsightFacts {
     let hasRuns: Bool
     /// True for a summary over many rides: the model then talks about progress, not one day.
     var isPeriod = false
+    /// What the rider rides; decides how the model is briefed and which advice it gives.
+    let sport: Sport
 
-    init(bullets: [String], prompt: String, hasRuns: Bool, isPeriod: Bool) {
+    init(bullets: [String], prompt: String, hasRuns: Bool, isPeriod: Bool, sport: Sport = .board) {
         self.bullets = bullets
         self.prompt = prompt
         self.hasRuns = hasRuns
         self.isPeriod = isPeriod
+        self.sport = sport
     }
 
-    init(analysis: RideAnalysis, points: [TrackPoint], placeName: String, units: Units) {
+    init(analysis: RideAnalysis, points: [TrackPoint], placeName: String, units: Units, sport: Sport = .board) {
+        self.sport = sport
         let runs = analysis.runs, lifts = analysis.lifts, stills = analysis.stills
         let riding = analysis.duration(of: .run)
         let lifting = analysis.duration(of: .lift)
@@ -78,6 +82,7 @@ struct RideInsightFacts {
         hasRuns = !runs.isEmpty
 
         var lines = [
+            "Sport: \(sport.activity.lowercased())",
             "Place: \(placeName)",
             "Total time: \(units.compactDuration(total)); riding \(units.compactDuration(riding)), lifts \(units.compactDuration(lifting)), standing \(units.compactDuration(standing))",
             "Runs: \(runs.count); downhill distance \(units.distance(meters: analysis.downhillDistance)); total descent \(units.altitude(meters: analysis.totalVertical))",
@@ -139,6 +144,38 @@ final class RideInsightsModel: ObservableObject {
     }
 }
 
+extension Sport {
+    /// Who the model plays, so a hike is not coached like a snowboard day.
+    var coachRole: String {
+        switch self {
+        case .ski: "ski coach"
+        case .board: "snowboarding coach"
+        case .bike: "mountain bike coach"
+        case .hike: "hiking guide"
+        }
+    }
+
+    /// What this sport's data means and what advice fits it. The ride data uses "run" for a downhill
+    /// segment and "lift" for a climb, whatever the sport; the brief tells the model the right words.
+    var coachBrief: String {
+        switch self {
+        case .ski:
+            "The rider skis. Runs are ski runs and lifts are chairlifts or gondolas. Look at descent per run, top speeds, "
+                + "and whether the legs tire in the second half. Tips are about skiing: edge control, speed control, pacing the day, resting."
+        case .board:
+            "The rider snowboards. Runs are snowboard runs and lifts are chairlifts or gondolas. Look at descent per run, top speeds, "
+                + "and whether energy drops in the second half. Tips are about snowboarding: carving, edge control, pacing the day, resting."
+        case .bike:
+            "The rider cycles off-road. Call runs descents and lifts climbs; never mention snow or chairlifts. Look at descent, "
+                + "top speeds and the balance between climbing and descending. Tips are about cycling: braking, pacing climbs, hydration."
+        case .hike:
+            "The rider hikes. Call runs descents and lifts climbs or ascents; never mention snow, skiing, snowboarding or chairlifts. "
+                + "Speed is not the goal, so never praise or push top speed. Look at total ascent and descent, time moving against resting, "
+                + "and steady effort. Tips are about hiking: steady pace, rest breaks, descending carefully on the knees, water and food."
+        }
+    }
+}
+
 #if canImport(FoundationModels)
 @available(iOS 26.0, *)
 @Generable
@@ -177,8 +214,9 @@ extension RideInsightsModel {
             ? "several days of ride data and the changes between earlier and later rides. Say whether the rider is improving, holding steady or slipping, and what changed"
             : "one day of ride data"
         let session = LanguageModelSession(instructions: """
-            You are a concise snowboarding coach reading \(scope). Use only the numbers you are given. \
-            Never invent speeds, places or events. Plain, friendly language. No emojis.
+            You are a concise \(facts.sport.coachRole) reading \(scope). Use only the numbers you are given. \
+            Never invent speeds, places or events. Plain, friendly language. No emojis. \
+            \(facts.sport.coachBrief)
             """)
         do {
             let response = try await session.respond(to: facts.prompt, generating: GeneratedInsights.self)

@@ -14,6 +14,9 @@ import CoreLocation
 ///   accuracy, course and activity columns; invalid values are empty fields. Read with `comment='#'` in pandas.
 /// - 3: as 2, but `timestamp` is unix time in seconds with milliseconds (`1792000000.950`).
 /// - 4: as 3, plus `g_force`: peak total G-force since the previous row, gravity included (1.0 at rest); empty without an accelerometer.
+///
+/// Comment lines are free-form `# key: value` pairs and readers skip them, so a new one needs no version bump.
+/// `# sport: ski|board|bike|walk` (walk is the hike sport) is written when the sport of the recording is known.
 enum TrackCSV {
     static let formatVersion = 4
 
@@ -85,9 +88,13 @@ enum TrackCSV {
 struct SessionMetadata: Codable, Equatable {
     var rejectedLowAccuracy = 0
     var rejectedStale = 0
+    /// `Sport` raw value of the recording; nil when unknown, and then no `# sport:` line is written.
+    var sport: String?
 
     var commentLines: [String] {
-        ["# rejected_low_accuracy: \(rejectedLowAccuracy)", "# rejected_stale: \(rejectedStale)"]
+        var lines = ["# rejected_low_accuracy: \(rejectedLowAccuracy)", "# rejected_stale: \(rejectedStale)"]
+        if let sport { lines.append("# sport: \(sport)") }
+        return lines
     }
 
     private static func key(_ session: Int) -> String { "sessionMetadata.\(session)" }

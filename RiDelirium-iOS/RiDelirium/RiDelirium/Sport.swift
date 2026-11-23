@@ -7,7 +7,7 @@ import SwiftUI
 
 /// What the rider rides. Shown as the glyph on their map tag and crew chip.
 nonisolated enum Sport: String, CaseIterable, Identifiable, Codable {
-    case ski, board, bike, walk
+    case ski, board, bike, hike = "walk"
 
     static let storageKey = "sport"
 
@@ -19,7 +19,7 @@ nonisolated enum Sport: String, CaseIterable, Identifiable, Codable {
         case .ski: "SKI"
         case .board: "BOARD"
         case .bike: "BIKE"
-        case .walk: "WALK"
+        case .hike: "HIKE"
         }
     }
 
@@ -29,7 +29,7 @@ nonisolated enum Sport: String, CaseIterable, Identifiable, Codable {
         case .ski: "SKIING"
         case .board: "SNOWBOARDING"
         case .bike: "BIKING"
-        case .walk: "WALKING"
+        case .hike: "HIKING"
         }
     }
 
@@ -38,7 +38,7 @@ nonisolated enum Sport: String, CaseIterable, Identifiable, Codable {
         case .ski: "SportSki"
         case .board: "SportBoard"
         case .bike: "SportBike"
-        case .walk: "SportWalk"
+        case .hike: "SportHike"
         }
     }
 
@@ -48,7 +48,7 @@ nonisolated enum Sport: String, CaseIterable, Identifiable, Codable {
         case .ski: "SettingsSki"
         case .board: "SettingsBoard"
         case .bike: "SettingsBike"
-        case .walk: "SettingsWalk"
+        case .hike: "SettingsHike"
         }
     }
 

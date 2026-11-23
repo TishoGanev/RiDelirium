@@ -20,6 +20,8 @@ val fcmProjectId = localProps.getProperty("FCM_PROJECT_ID", "")
 val fcmAppId = localProps.getProperty("FCM_APP_ID", "")
 val fcmApiKey = localProps.getProperty("FCM_API_KEY", "")
 val fcmSenderId = localProps.getProperty("FCM_SENDER_ID", "")
+// One build number for iOS, Android and the API: BUILD_NUMBER at the repo root (raise it with ./bump_build_number.sh).
+val buildNumber = rootProject.file("../BUILD_NUMBER").readText().trim().toInt()
 // Play upload key: storeFile, storePassword, keyAlias, keyPassword in the gitignored keystore.properties
 // (see keystore.properties.example). Without it release builds are simply unsigned, so debug and CI builds still work.
 val keystoreProps = Properties().apply {
@@ -36,8 +38,8 @@ android {
         applicationId = "com.bgdeveloper.ridelirium"
         minSdk = 29
         targetSdk = 37
-        versionCode = 2
-        versionName = "2.0"
+        versionCode = buildNumber
+        versionName = "2.0.0"
 
         manifestPlaceholders["mapsApiKey"] = mapsApiKey
         manifestPlaceholders["fileProviderAuthority"] = "com.bgdeveloper.ridelirium.fileprovider"

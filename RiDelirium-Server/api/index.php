@@ -2,6 +2,7 @@
 // Ride Together API: accountless crews for the RiDelirium app.
 //
 //   POST   /v1/riders                {"id","name"}        -> 201 {"token"}      register this install
+//   GET    /v1/version               -> 200 {"build":int|null}   build number shared with the apps; no auth
 //   PUT    /v1/riders/me             {"name"?,"sport"?}   -> 200 friend         change display name and/or sport (ski, board, bike, walk); crew-mates are told at once
 //   DELETE /v1/riders/me                                  -> 204                delete everything about me
 //   GET    /v1/crews                                      -> 200 [crew]         my crews (expired memberships are gone)
@@ -509,6 +510,12 @@ if (!preg_match('#/v1(/[^?]*)?$#', $path, $m)) {
 }
 $route = rtrim($m[1] ?? '/', '/') ?: '/';
 $method = $_SERVER['REQUEST_METHOD'];
+
+// The build number shared with the iOS and Android apps (BUILD_NUMBER at the repo root, copied here by deploy.sh).
+if ($route === '/version' && $method === 'GET') {
+    $build = is_file(__DIR__ . '/build_number.txt') ? (int)trim((string)file_get_contents(__DIR__ . '/build_number.txt')) : 0;
+    respond(200, ['build' => $build > 0 ? $build : null]);
+}
 
 try {
     if ($route === '/riders' && $method === 'POST') {

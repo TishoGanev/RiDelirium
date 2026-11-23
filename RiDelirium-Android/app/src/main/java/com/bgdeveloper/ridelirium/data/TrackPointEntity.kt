@@ -37,6 +37,8 @@ data class TrackPointEntity(
     val activityConfidence: Int? = null,
     /** Highest total G-force (gravity included, about 1.0 at rest) since the previous point; null without an accelerometer. */
     val gForce: Double? = null,
+    /** [com.bgdeveloper.ridelirium.friends.Sport.key] the rider had chosen when the fix arrived; null on points saved before it was stored. */
+    val sport: String? = null,
 )
 
 @Dao
@@ -57,11 +59,18 @@ interface TrackPointDao {
     suspend fun deleteSession(session: Int)
 }
 
-@Database(entities = [TrackPointEntity::class], version = 3, exportSchema = false)
+@Database(entities = [TrackPointEntity::class], version = 4, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun trackPointDao(): TrackPointDao
 
     companion object {
+        /** Adds the sport column; existing points keep NULL there. */
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE track_points ADD COLUMN sport TEXT")
+            }
+        }
+
         /** Adds the G-force column; existing points keep NULL there. */
         val MIGRATION_2_3 = object : Migration(2, 3) {
             override fun migrate(db: SupportSQLiteDatabase) {

@@ -105,7 +105,7 @@ final class WorkoutManager: NSObject, ObservableObject, HKWorkoutSessionDelegate
         switch sport {
         case "ski": .downhillSkiing
         case "bike": .cycling
-        case "walk": .walking
+        case "walk": .hiking
         default: .snowboarding
         }
     }
