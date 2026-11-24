@@ -52,6 +52,8 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
         var heartRate: Double?
     }
     var liveExtras: () -> LiveExtras = { LiveExtras() }
+    /// The watch's current heart rate, saved with each recorded point. Set by ContentView.
+    var heartRate: () -> Double? = { nil }
     /// Rider's heading while moving, for the arrows to friends.
     var heading: Double? {
         guard let location = currentLocation, location.course >= 0, location.speed > 1 else { return nil }
@@ -296,7 +298,7 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
         let peakG = gSensor.takePeak()
         if let peakG { maxG = max(maxG ?? 0, peakG) }
         if let context = modelContext {
-            let point = TrackPoint(location: location, session: session, motion: motion.latest, gForce: peakG, sport: Sport.saved)
+            let point = TrackPoint(location: location, session: session, motion: motion.latest, gForce: peakG, heartRate: heartRate(), sport: Sport.saved)
             context.insert(point)
             try? context.save()
         }

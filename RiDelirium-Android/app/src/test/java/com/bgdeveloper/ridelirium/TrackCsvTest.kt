@@ -56,11 +56,16 @@ class TrackCsvTest {
         assertEquals(listOf("", "", "", ""), fields.subList(6, 10))
     }
 
-    @Test fun gForceIsLastColumnAndEmptyWithoutSensor() {
-        assertEquals("g_force", TrackCsv.COLUMNS.last())
-        assertEquals("", TrackCsv.row(point(0)).split(",").last())
+    @Test fun gForceIsEmptyWithoutSensor() {
+        val index = TrackCsv.COLUMNS.indexOf("g_force")
+        assertEquals("", TrackCsv.row(point(0)).split(",")[index])
         val withG = point(0).copy(gForce = 1.42)
-        assertEquals("1.42", TrackCsv.row(withG).split(",").last())
+        assertEquals("1.42", TrackCsv.row(withG).split(",")[index])
+    }
+
+    @Test fun heartRateIsLastColumnAndAlwaysEmpty() {
+        assertEquals("heart_rate_bpm", TrackCsv.COLUMNS.last())
+        assertEquals("", TrackCsv.row(point(0)).split(",").last())
     }
 
     @Test fun zeroIsKeptWhenValid() {
@@ -76,7 +81,7 @@ class TrackCsvTest {
 
     @Test fun csvHasVersionLineMetadataAndHeader() {
         val lines = TrackCsv.csv(emptyList(), SessionMetadata(3, 1)).split("\n")
-        assertEquals("# ridelirium-csv-version: 4", lines[0])
+        assertEquals("# ridelirium-csv-version: 5", lines[0])
         assertTrue("# rejected_low_accuracy: 3" in lines)
         assertTrue("# rejected_stale: 1" in lines)
         assertEquals(TrackCsv.COLUMNS.joinToString(","), lines[3])

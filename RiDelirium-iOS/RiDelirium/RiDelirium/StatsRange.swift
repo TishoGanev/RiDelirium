@@ -92,17 +92,17 @@ extension RideInsightFacts {
         let distance = days.reduce(0) { $0 + $1.downhillDistance }
 
         if days.isEmpty {
-            bullets.append("No downhill runs were found in this period.")
+            bullets.append("No downhill \(sport.words.runs) were found in this period.")
         } else {
-            bullets.append("\(days.count) ride \(days.count == 1 ? "day" : "days"), \(runs) runs, \(units.altitude(meters: vertical)) of descent over \(units.distance(meters: distance)).")
+            bullets.append("\(days.count) ride \(days.count == 1 ? "day" : "days"), \(runs) \(sport.words.runs), \(units.altitude(meters: vertical)) of descent over \(units.distance(meters: distance)).")
             if days.count > 1 {
                 if let best = days.max(by: { $0.vertical < $1.vertical }) {
                     bullets.append("Most descent in a day: \(units.altitude(meters: best.vertical)) on \(Self.day(best.date)).")
                 }
-                if let fastest = days.max(by: { $0.topSpeed < $1.topSpeed }) {
+                if sport.showsSpeed, let fastest = days.max(by: { $0.topSpeed < $1.topSpeed }) {
                     bullets.append("Fastest day: \(units.speed(metersPerSecond: fastest.topSpeed)) on \(Self.day(fastest.date)).")
                 }
-                bullets.append(contentsOf: Self.trends(days, units: units))
+                bullets.append(contentsOf: Self.trends(days, units: units, sport: sport))
             } else {
                 bullets.append("Only one ride day in this period, so there is no trend to show yet.")
             }
@@ -120,7 +120,7 @@ extension RideInsightFacts {
 
     /// Earlier rides against later ones. With 2 or 3 days it is the first against the last; with more,
     /// the first half against the second. Changes under 8% are noise and are not reported.
-    static func trends(_ days: [DayMetrics], units: Units) -> [String] {
+    static func trends(_ days: [DayMetrics], units: Units, sport: Sport = .board) -> [String] {
         guard days.count >= 2 else { return [] }
         let early: [DayMetrics], late: [DayMetrics]
         if days.count >= 4 {
@@ -139,9 +139,11 @@ extension RideInsightFacts {
             guard abs(change) >= 8 else { return }
             out.append("\(label) is \(Int(abs(change).rounded()))% \(change > 0 ? "higher" : "lower") in your later rides (\(format(after)) against \(format(before))).")
         }
-        compare("Top speed", mean(early.map(\.topSpeed)), mean(late.map(\.topSpeed))) { units.speed(metersPerSecond: $0) }
+        if sport.showsSpeed {
+            compare("Top speed", mean(early.map(\.topSpeed)), mean(late.map(\.topSpeed))) { units.speed(metersPerSecond: $0) }
+        }
         compare("Descent per day", mean(early.map(\.vertical)), mean(late.map(\.vertical))) { units.altitude(meters: $0) }
-        compare("Runs per day", mean(early.map { Double($0.runs) }), mean(late.map { Double($0.runs) })) { String(Int($0.rounded())) }
+        compare("\(sport.words.runs.capitalized) per day", mean(early.map { Double($0.runs) }), mean(late.map { Double($0.runs) })) { String(Int($0.rounded())) }
 
         func perHour(_ group: [DayMetrics]) -> Double {
             let time = group.reduce(0) { $0 + $1.totalTime }

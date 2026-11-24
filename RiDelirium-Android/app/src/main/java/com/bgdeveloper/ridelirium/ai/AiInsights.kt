@@ -53,17 +53,44 @@ object AiInsights {
         }
     }
 
-    private suspend fun run(model: GenerativeModel, facts: InsightFacts, key: String): AiResult {
+    /** Answers a question about the ride or period from its facts; null when the phone can't or the model fails. */
+    suspend fun ask(facts: InsightFacts, question: String, history: List<InsightChat.Exchange>): String? {
+        val clean = InsightChat.clean(question) ?: return null
+        return try {
+            val model = Generation.getClient()
+            try {
+                if (!isReady(model)) return null
+                val request = generateContentRequest(TextPart(InsightChat.prompt(facts, clean, history))) {
+                    temperature = 0.3f
+                    maxOutputTokens = MAX_ANSWER_TOKENS
+                }
+                model.generateContent(request).candidates.firstOrNull()?.text.orEmpty().trim().ifEmpty { null }
+            } finally {
+                model.close()
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Throwable) {
+            null
+        }
+    }
+
+    /** True when Gemini Nano can answer; waits for the system to download it, and gives up quietly if that fails. */
+    private suspend fun isReady(model: GenerativeModel): Boolean {
         when (model.checkStatus()) {
-            FeatureStatus.UNAVAILABLE -> return AiResult.Unavailable
+            FeatureStatus.UNAVAILABLE -> return false
             FeatureStatus.AVAILABLE -> Unit
-            // The system downloads the model; wait for it, and give up quietly if that fails.
             else -> {
                 var failed = false
                 model.download().collect { if (it is DownloadStatus.DownloadFailed) failed = true }
-                if (failed || model.checkStatus() != FeatureStatus.AVAILABLE) return AiResult.Unavailable
+                if (failed || model.checkStatus() != FeatureStatus.AVAILABLE) return false
             }
         }
+        return true
+    }
+
+    private suspend fun run(model: GenerativeModel, facts: InsightFacts, key: String): AiResult {
+        if (!isReady(model)) return AiResult.Unavailable
         val request = generateContentRequest(TextPart(buildPrompt(facts))) {
             temperature = 0.3f
             maxOutputTokens = MAX_OUTPUT_TOKENS
@@ -110,4 +137,5 @@ object AiInsights {
 
     private const val CACHE_SIZE = 8
     private const val MAX_OUTPUT_TOKENS = 400
+    private const val MAX_ANSWER_TOKENS = 200
 }

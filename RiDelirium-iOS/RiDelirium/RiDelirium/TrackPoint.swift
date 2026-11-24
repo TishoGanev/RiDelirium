@@ -28,6 +28,8 @@ final class TrackPoint {
     var activityConfidence: Int?
     /// Highest total G-force (gravity included, about 1.0 at rest) since the previous point; nil without an accelerometer.
     var gForce: Double?
+    /// Beats per minute from the Apple Watch when the fix arrived; nil without a watch or when its reading was stale.
+    var heartRate: Double?
     /// `Sport` raw value the rider had chosen when the fix arrived; nil on points saved before it was stored.
     var sport: String?
 
@@ -40,7 +42,7 @@ final class TrackPoint {
         self.session = session
     }
 
-    convenience init(location: CLLocation, session: Int, motion: MotionSample? = nil, gForce: Double? = nil, sport: Sport? = nil) {
+    convenience init(location: CLLocation, session: Int, motion: MotionSample? = nil, gForce: Double? = nil, heartRate: Double? = nil, sport: Sport? = nil) {
         self.init(
             lat: location.coordinate.latitude,
             lon: location.coordinate.longitude,
@@ -59,6 +61,7 @@ final class TrackPoint {
         activity = motion?.kind.rawValue
         activityConfidence = motion?.confidence
         self.gForce = gForce
+        self.heartRate = heartRate
         self.sport = sport?.rawValue
     }
 

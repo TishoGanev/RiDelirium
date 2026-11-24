@@ -16,6 +16,8 @@ final class PhoneWatchBridge: NSObject, ObservableObject, WCSessionDelegate {
     /// Latest heart rate from the watch, dropped when it goes quiet for 20 seconds.
     @Published private(set) var heartRate: Double?
     private var heartRateAt = Date.distantPast
+    /// A watch is paired with the RiDelirium watch app installed, so a pulse can show up.
+    @Published private(set) var hasWatch = false
     private var lastExtrasAt = Date.distantPast
     private var cancellables = Set<AnyCancellable>()
     private var lastSent = WatchState()
@@ -29,6 +31,7 @@ final class PhoneWatchBridge: NSObject, ObservableObject, WCSessionDelegate {
         self.friends = friends
         session.delegate = self
         session.activate()
+        refreshWatchState()
 
         // Elapsed time ticks every second, so this also acts as the update heartbeat.
         tracker.objectWillChange
@@ -105,6 +108,11 @@ final class PhoneWatchBridge: NSObject, ObservableObject, WCSessionDelegate {
         }
     }
 
+    private func refreshWatchState() {
+        guard let session else { return }
+        hasWatch = session.isPaired && session.isWatchAppInstalled
+    }
+
     private func apply(_ command: WatchCommand) {
         guard let tracker else { return }
         switch command {
@@ -120,7 +128,11 @@ final class PhoneWatchBridge: NSObject, ObservableObject, WCSessionDelegate {
     // MARK: - WCSessionDelegate
 
     nonisolated func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: Error?) {
-        Task { @MainActor in self.lastSentAt = .distantPast; self.push() }
+        Task { @MainActor in self.refreshWatchState(); self.lastSentAt = .distantPast; self.push() }
+    }
+
+    nonisolated func sessionWatchStateDidChange(_ session: WCSession) {
+        Task { @MainActor in self.refreshWatchState() }
     }
 
     nonisolated func sessionDidBecomeInactive(_ session: WCSession) {}

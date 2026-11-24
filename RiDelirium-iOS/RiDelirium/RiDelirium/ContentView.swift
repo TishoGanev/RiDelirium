@@ -29,7 +29,12 @@ struct ContentView: View {
         ZStack(alignment: .bottom) {
             Color.white.ignoresSafeArea()
 
-            tabContent(.track) { TrackScreen() }
+            tabContent(.track) {
+                TrackScreen(onOpenHealth: {
+                    settingsPath = NavigationPath([SettingsRoute.health])
+                    tab = .settings
+                })
+            }
             tabContent(.stats) { StatsScreen(path: $statsPath) }
             tabContent(.settings) { SettingsScreen(path: $settingsPath) }
 
@@ -65,6 +70,7 @@ struct ContentView: View {
         ))
         .environmentObject(tracker)
         .environmentObject(friends)
+        .environmentObject(watchBridge)
         .preferredColorScheme(.light)
         .onAppear {
             tracker.liveExtras = {
@@ -72,6 +78,7 @@ struct ContentView: View {
                 return LocationTracker.LiveExtras(friends: live.friends, request: live.request, waiting: live.waiting,
                                                   heartRate: watchBridge.currentHeartRate)
             }
+            tracker.heartRate = { watchBridge.currentHeartRate }
             tracker.onActivityToken = { token in Task { await friends.setActivityToken(token) } }
             tracker.configure(context: modelContext)
             tracker.requestAuthorization()

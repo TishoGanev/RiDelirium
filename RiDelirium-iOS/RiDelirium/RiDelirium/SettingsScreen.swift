@@ -7,6 +7,7 @@ import SwiftUI
 
 enum SettingsRoute: Hashable {
     case about
+    case health
 }
 
 /// "VERSION 2.0.0 (2)" from the bundle, shown at the foot of Settings and in About.
@@ -73,6 +74,8 @@ struct SettingsScreen: View {
                         }
                         .buttonStyle(SettingsRowPressStyle())
 
+                        healthRow
+
                         deleteDataRow
 
                         versionFooter(clearsTabBar: true)
@@ -88,6 +91,7 @@ struct SettingsScreen: View {
             .navigationDestination(for: SettingsRoute.self) { route in
                 switch route {
                 case .about: AboutScreen()
+                case .health: HealthInfoScreen()
                 }
             }
         }
@@ -127,6 +131,7 @@ struct SettingsScreen: View {
                                 }
                             }
                             .buttonStyle(SettingsRowPressStyle())
+                            healthRow
                             deleteDataRow
                         }
                         .background(Color.white, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
@@ -226,6 +231,23 @@ struct SettingsScreen: View {
             Rectangle().fill(Color.sbDivider).frame(height: 1)
         }
         .onChange(of: autoStart) { _, _ in tracker.refreshMotionMonitoring() }
+    }
+
+    /// App Store 2.5.1: a section of its own that says plainly where the app uses HealthKit.
+    private var healthRow: some View {
+        Button {
+            path.append(SettingsRoute.health)
+        } label: {
+            SettingsRow {
+                Text("APPLE HEALTH")
+                    .font(.sb(18))
+                    .foregroundStyle(.sbCharcoal)
+                Spacer()
+                Chevron()
+                    .padding(.trailing, 4)
+            }
+        }
+        .buttonStyle(SettingsRowPressStyle())
     }
 
     /// App Store 5.1.1(v): what Ride Together keeps on the server (name, crews, token) can be deleted from the app.
@@ -391,6 +413,66 @@ struct AboutScreen: View {
         .background(Color.white)
         .ignoresSafeArea(edges: .top)
         .toolbar(.hidden, for: .navigationBar)
+    }
+}
+
+/// App Store 2.5.1: where the app says what it does with Apple Health.
+struct HealthInfoScreen: View {
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        VStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: 8) {
+                BackLink(title: "SETTINGS") { dismiss() }
+                Text("APPLE HEALTH")
+                    .font(.sbFixed(40))
+                    .cssLineHeight(1, fontSize: 40)
+                    .minimumScaleFactor(0.7)
+                    .lineLimit(1)
+                    .accessibilityAddTraits(.isHeader)
+            }
+            .foregroundStyle(.white)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.top, 58)
+            .padding(.horizontal, 20)
+            .padding(.bottom, 24)
+            .background(Color.sbRed)
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 22) {
+                    Image(systemName: "heart.fill")
+                        .font(.system(size: 44))
+                        .foregroundStyle(.sbRed)
+                        .frame(maxWidth: .infinity)
+                        .accessibilityHidden(true)
+                    item("SAVES YOUR RIDES", "With the Apple Watch app, RiDelirium saves each ride to Health as a workout of your sport (skiing, snowboarding, biking or hiking).")
+                    item("SHOWS DISTANCE AND HEART RATE", "The ride screen shows the distance and average heart rate Health recorded for that ride, labelled Apple Health.")
+                    item("STAYS ON YOUR PHONE", "Nothing from Health is uploaded, shared with friends or used for ads.")
+                    item("YOU CHOOSE", "Change or turn off access any time in Settings > Health > Data Access & Devices > RiDelirium.")
+                }
+                .padding(.horizontal, 24)
+                .padding(.top, 32)
+                .padding(.bottom, 40)
+            }
+            .scrollIndicators(.hidden)
+        }
+        .background(Color.white)
+        .ignoresSafeArea(edges: .top)
+        .toolbar(.hidden, for: .navigationBar)
+    }
+
+    private func item(_ title: String, _ text: String) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+                .font(.sb(16))
+                .tracking(16 * 0.04)
+                .foregroundStyle(.sbCharcoal)
+            Text(text)
+                .font(.sb(16, .semibold))
+                .foregroundStyle(.sbSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .accessibilityElement(children: .combine)
     }
 }
 

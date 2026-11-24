@@ -7,8 +7,10 @@ import SwiftUI
 import MapKit
 
 struct TrackScreen: View {
-    /// The profile button lives in the top bar now, so the Track screen asks to open Settings.
+    /// Opens Settings > Apple Health, for riders whose pulse isn't coming from a watch.
+    var onOpenHealth: () -> Void = {}
     @EnvironmentObject private var tracker: LocationTracker
+    @EnvironmentObject private var watch: PhoneWatchBridge
     @EnvironmentObject private var friends: FriendsStore
     @AppStorage("unitsMetric") private var unitsMetric = true
     @Environment(\.verticalSizeClass) private var verticalSizeClass
@@ -219,16 +221,7 @@ struct TrackScreen: View {
                         .monospacedDigit()
                 }
                 .foregroundStyle(.sbRed)
-                HStack(alignment: .lastTextBaseline, spacing: 5) {
-                    Text(String(format: "%.0f", tracker.isPaused ? 0 : units.speedValue(metersPerSecond: tracker.currentSpeed)))
-                        .font(.sbFixed(40))
-                        .monospacedDigit()
-                        .foregroundStyle(.sbCharcoal)
-                        .cssLineHeight(0.95, fontSize: 40)
-                    Text(units.speedUnit)
-                        .font(.sb(13))
-                        .foregroundStyle(.sbSecondary)
-                }
+                speedPulseRow(sizes: [40], lineHeight: 0.95)
             }
             .fixedSize()
             LandscapeStat(label: "DISTANCE", value: units.distance(meters: tracker.traveledDistance), size: 20)
@@ -481,28 +474,17 @@ struct TrackScreen: View {
             grabber
 
             HStack(spacing: 12) {
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(spacing: 6) {
-                        PulsingDot(size: 7, pulses: !tracker.isPaused)
-                        Text(tracker.isPaused ? "PAUSED" : "RECORDING · \(units.duration(tracker.elapsed))")
-                            .font(.sb(12))
-                            .tracking(12 * 0.04)
-                            .monospacedDigit()
-                            .cssLineHeight(1, fontSize: 12)
-                    }
-                    .foregroundStyle(.sbRed)
-
-                    HStack(alignment: .lastTextBaseline, spacing: 5) {
-                        Text(String(format: "%.0f", tracker.isPaused ? 0 : units.speedValue(metersPerSecond: tracker.currentSpeed)))
-                            .font(.sbFixed(44))
-                            .monospacedDigit()
-                            .foregroundStyle(.sbCharcoal)
-                            .cssLineHeight(1, fontSize: 44)
-                        Text(units.speedUnit)
-                            .font(.sb(15))
-                            .foregroundStyle(.sbSecondary)
-                    }
+                HStack(spacing: 6) {
+                    PulsingDot(size: 7, pulses: !tracker.isPaused)
+                    Text(tracker.isPaused ? "PAUSED" : "RECORDING · \(units.duration(tracker.elapsed))")
+                        .font(.sb(12))
+                        .tracking(12 * 0.04)
+                        .monospacedDigit()
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                        .cssLineHeight(1, fontSize: 12)
                 }
+                .foregroundStyle(.sbRed)
                 Spacer(minLength: 0)
 
                 Button(action: togglePause) {
@@ -528,6 +510,9 @@ struct TrackScreen: View {
                 }
                 .buttonStyle(PressableStyle())
             }
+
+            // Speed and pulse get the whole width, so both can be as big as the phone allows.
+            speedPulseRow(sizes: [56, 52, 48, 44, 40, 36, 32, 28], lineHeight: 1)
 
             VStack(spacing: 10) {
                 Rectangle().fill(Color(hex: 0xEFEFEF)).frame(height: 1)
@@ -599,6 +584,13 @@ struct TrackScreen: View {
                 .padding(.bottom, 18)
             }
 
+            // No watch, so no pulse to show: a way into what the app does with Apple Health.
+            if !tracker.isTracking, !watch.hasWatch {
+                pulseBadge(size: 22, linkLabel: "APPLE HEALTH")
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.bottom, 14)
+            }
+
             buttons
         }
         .padding(.top, tracker.isTracking ? 8 : 20)
@@ -620,17 +612,34 @@ struct TrackScreen: View {
             }
             .foregroundStyle(.sbRed)
 
-            HStack(alignment: .lastTextBaseline, spacing: 8) {
-                Text(String(format: "%.0f", tracker.isPaused ? 0 : units.speedValue(metersPerSecond: tracker.currentSpeed)))
-                    .font(.sbFixed(80))
-                    .tracking(-80 * 0.02)
-                    .monospacedDigit()
-                    .foregroundStyle(.sbCharcoal)
-                    .cssLineHeight(0.9, fontSize: 80)
-                Text(units.speedUnit)
-                    .font(.sb(20))
-                    .foregroundStyle(.sbSecondary)
+            speedPulseRow(sizes: [80, 74, 68, 62, 56, 50, 44, 38], tracking: 0.02, lineHeight: 0.9)
+        }
+    }
+
+    private var speedText: String {
+        String(format: "%.0f", tracker.isPaused ? 0 : units.speedValue(metersPerSecond: tracker.currentSpeed))
+    }
+
+    /// Speed and heart rate side by side at the same size, the largest that fits.
+    private func speedPulseRow(sizes: [CGFloat], tracking: CGFloat = 0, lineHeight: CGFloat) -> some View {
+        SpeedPulseRow(speed: speedText, unit: units.speedUnit, sizes: sizes, tracking: tracking, lineHeight: lineHeight) { size, template in
+            pulseBadge(size: size, lineHeight: lineHeight, template: template)
+        }
+    }
+
+    /// Live heart rate from the Apple Watch beside the speed. Without a watch it points to Settings > Apple Health.
+    @ViewBuilder
+    private func pulseBadge(size: CGFloat, lineHeight: CGFloat = 1, template: Bool = false, linkLabel: String = "HEALTH") -> some View {
+        if let bpm = watch.currentHeartRate {
+            PulseBadge(text: template ? "188" : String(Int(bpm.rounded())), unit: "BPM", size: size, lineHeight: lineHeight)
+        } else if watch.hasWatch {
+            PulseBadge(text: template ? "188" : "--", unit: "BPM", size: size, lineHeight: lineHeight)
+        } else {
+            Button(action: onOpenHealth) {
+                PulseBadge(text: linkLabel, unit: nil, size: size, isLink: true)
             }
+            .buttonStyle(PressableStyle())
+            .accessibilityLabel("Apple Health. Open Apple Health settings")
         }
     }
 
@@ -860,6 +869,99 @@ struct TrackScreen: View {
 // MARK: - Components
 
 /// Slim bar along the top: invites you to ride with someone, or shows your crew and who is on the map.
+/// A small heart with the rider's pulse, or a "PULSE ›" link when there is no watch to read it from.
+/// Unit beside a hero number (KM/H, MPH, BPM): one size for speed and pulse so they read as a pair.
+private func heroUnitSize(_ numberSize: CGFloat) -> CGFloat {
+    max(13, numberSize * 0.3)
+}
+
+/// Speed and pulse at one size: the largest of `sizes` that fits the row. The size is measured
+/// against at least two speed digits and a three-digit pulse, so it doesn't jump as the numbers change.
+/// Units stay on one line.
+private struct SpeedPulseRow<Pulse: View>: View {
+    let speed: String
+    let unit: String
+    let sizes: [CGFloat]
+    var tracking: CGFloat = 0
+    var lineHeight: CGFloat = 1
+    @ViewBuilder let pulse: (_ size: CGFloat, _ template: Bool) -> Pulse
+
+    var body: some View {
+        ViewThatFits(in: .horizontal) {
+            ForEach(sizes, id: \.self) { size in
+                row(size, template: true)
+                    .hidden()
+                    .accessibilityHidden(true)
+                    .overlay { row(size, template: false) }
+            }
+        }
+    }
+
+    private func row(_ size: CGFloat, template: Bool) -> some View {
+        HStack(alignment: .lastTextBaseline, spacing: 0) {
+            Text(template ? String(repeating: "8", count: max(2, speed.count)) : speed)
+                .font(.sbFixed(size))
+                .tracking(-size * tracking)
+                .monospacedDigit()
+                .foregroundStyle(.sbCharcoal)
+                .cssLineHeight(lineHeight, fontSize: size)
+            Text(unit)
+                .font(.sb(heroUnitSize(size)))
+                .foregroundStyle(.sbSecondary)
+                .padding(.leading, size * 0.1)
+            Spacer(minLength: size * 0.3)
+            pulse(size, template)
+        }
+        .lineLimit(1)
+        .minimumScaleFactor(0.5)
+    }
+}
+
+private struct PulseBadge: View {
+    let text: String
+    let unit: String?
+    /// Point size of the pulse number, the same as the speed beside it.
+    let size: CGFloat
+    var lineHeight: CGFloat = 1
+    var isLink = false
+
+    var body: some View {
+        let linkSize = min(14, size * 0.5)
+        HStack(alignment: .lastTextBaseline, spacing: isLink ? 4 : size * 0.08) {
+            Image(systemName: "heart.fill")
+                .font(.system(size: isLink ? linkSize * 1.15 : size * 0.5))
+                .foregroundStyle(.sbRed)
+                .alignmentGuide(.lastTextBaseline) { $0[.bottom] - 1 }
+            if isLink {
+                Text(text)
+                    .font(.sb(linkSize))
+                    .tracking(linkSize * 0.04)
+                    .foregroundStyle(.sbSecondary)
+            } else {
+                Text(text)
+                    .font(.sbFixed(size))
+                    .monospacedDigit()
+                    .foregroundStyle(.sbCharcoal)
+                    .cssLineHeight(lineHeight, fontSize: size)
+            }
+            if let unit {
+                Text(unit)
+                    .font(.sb(heroUnitSize(size)))
+                    .foregroundStyle(.sbSecondary)
+            }
+            if isLink {
+                Chevron(color: .sbSecondary, lineWidth: 2, size: linkSize * 0.7)
+            }
+        }
+        .lineLimit(1)
+        .fixedSize()
+        .padding(.horizontal, isLink ? 10 : 0)
+        .padding(.vertical, isLink ? 6 : 0)
+        .background(isLink ? Color.sbLightGrey : .clear, in: Capsule())
+        .accessibilityElement(children: .combine)
+    }
+}
+
 private struct CrewPill: View {
     let friends: [Friend]
     let crew: Crew?

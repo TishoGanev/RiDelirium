@@ -13,17 +13,19 @@ import java.time.Instant
  *   accuracy, course and activity columns; invalid values are empty fields. Read with `comment='#'` in pandas.
  * - 3: as 2, but `timestamp` is unix time in seconds with milliseconds (`1792000000.950`).
  * - 4: as 3, plus `g_force`: peak total G-force since the previous row, gravity included (1.0 at rest); empty without an accelerometer.
+ * - 5: as 4, plus `heart_rate_bpm`: the Apple Watch heart rate when the fix arrived; always empty on Android.
  *
  * Comment lines are free-form `# key: value` pairs and readers skip them, so a new one needs no version bump.
  * `# sport: ski|board|bike|walk` (walk is the hike sport) is written when the sport of the recording is known.
  */
 object TrackCsv {
-    const val FORMAT_VERSION = 4
+    const val FORMAT_VERSION = 5
 
     val COLUMNS = listOf(
         "timestamp", "latitude", "longitude", "altitude_m", "speed_mps",
         "horizontal_accuracy_m", "vertical_accuracy_m", "speed_accuracy_mps",
         "course_deg", "course_accuracy_deg", "activity", "activity_confidence", "g_force",
+        "heart_rate_bpm",
     )
 
     /** Unix time in seconds with milliseconds, e.g. `1792000000.950`. */
@@ -49,6 +51,7 @@ object TrackCsv {
             format(p.timestamp), signed(p.lat), signed(p.lon), signed(p.altitude), field(speed),
             field(p.horizontalAccuracy), field(p.verticalAccuracy), field(p.speedAccuracy),
             field(p.course), field(p.courseAccuracy), p.activity.orEmpty(), p.activityConfidence?.toString().orEmpty(), field(p.gForce),
+            "",
         ).joinToString(",")
     }
 

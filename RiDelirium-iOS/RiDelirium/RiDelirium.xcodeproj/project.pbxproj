@@ -928,7 +928,7 @@
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.sports";
 				INFOPLIST_KEY_NSCameraUsageDescription = "RiDelirium uses the camera to scan a friend's code so you can ride together.";
-				INFOPLIST_KEY_NSHealthShareUsageDescription = "RiDelirium shows the downhill distance your Apple Watch recorded for each ride.";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "RiDelirium shows the distance and heart rate your Apple Watch recorded for each ride.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "RiDelirium saves the workout your Apple Watch records during a ride to Health.";
 				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "RiDelirium uses your location to track your runs, including while the app is in the background.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "RiDelirium uses your location to track your runs on the map.";
@@ -977,7 +977,7 @@
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.sports";
 				INFOPLIST_KEY_NSCameraUsageDescription = "RiDelirium uses the camera to scan a friend's code so you can ride together.";
-				INFOPLIST_KEY_NSHealthShareUsageDescription = "RiDelirium shows the downhill distance your Apple Watch recorded for each ride.";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "RiDelirium shows the distance and heart rate your Apple Watch recorded for each ride.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "RiDelirium saves the workout your Apple Watch records during a ride to Health.";
 				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "RiDelirium uses your location to track your runs, including while the app is in the background.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "RiDelirium uses your location to track your runs on the map.";

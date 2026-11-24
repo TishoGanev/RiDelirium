@@ -19,7 +19,7 @@ struct DailyStatsScreen: View {
     @State private var isPreparingShare = false
     @StateObject private var replay: RideReplay
     @State private var isReplaying = false
-    @StateObject private var health = HealthDownhill()
+    @StateObject private var health = HealthRideStats()
     /// Computed once: the replay redraws the map ~20 times a second.
     private let routeCoordinates: [CLLocationCoordinate2D]
     private let analysis: RideAnalysis
@@ -55,6 +55,18 @@ struct DailyStatsScreen: View {
         _replay = StateObject(wrappedValue: RideReplay(points: session.points))
     }
 
+    /// "APPLE HEALTH · 5.20 KM ON FOOT · 128 BPM AVG": what Health recorded for this ride.
+    private var healthLine: String {
+        var parts = ["APPLE HEALTH"]
+        if let meters = health.distanceMeters {
+            parts.append("\(units.distance(meters: meters)) \(HealthRideStats.distanceLabel(for: session.sport))")
+        }
+        if let average = health.averageHeartRate {
+            parts.append("\(Int(average.rounded())) BPM AVG")
+        }
+        return parts.joined(separator: " · ")
+    }
+
     var body: some View {
         Group {
             if verticalSizeClass == .compact {
@@ -71,7 +83,7 @@ struct DailyStatsScreen: View {
         }
             }
         }
-        .task { await health.load(from: session.startDate, to: session.endDate) }
+        .task { await health.load(from: session.startDate, to: session.endDate, sport: session.sport) }
         .onDisappear { replay.pause() }
         .onChange(of: replay.committedCount) { _, _ in committed = replay.committedTrail }
         .onChange(of: isReplaying) { _, _ in committed = replay.committedTrail }
@@ -239,8 +251,8 @@ struct DailyStatsScreen: View {
             )
             .padding(.top, 6)
 
-            if let healthMeters = health.distanceMeters {
-                Text("APPLE HEALTH · \(units.distance(meters: healthMeters)) DOWNHILL")
+            if health.hasData {
+                Text(healthLine)
                     .font(.sb(13))
                     .tracking(13 * 0.04)
                     .lineLimit(1)

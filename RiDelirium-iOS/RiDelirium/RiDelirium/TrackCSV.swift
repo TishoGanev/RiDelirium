@@ -14,16 +14,18 @@ import CoreLocation
 ///   accuracy, course and activity columns; invalid values are empty fields. Read with `comment='#'` in pandas.
 /// - 3: as 2, but `timestamp` is unix time in seconds with milliseconds (`1792000000.950`).
 /// - 4: as 3, plus `g_force`: peak total G-force since the previous row, gravity included (1.0 at rest); empty without an accelerometer.
+/// - 5: as 4, plus `heart_rate_bpm`: the Apple Watch heart rate when the fix arrived; empty without a watch.
 ///
 /// Comment lines are free-form `# key: value` pairs and readers skip them, so a new one needs no version bump.
 /// `# sport: ski|board|bike|walk` (walk is the hike sport) is written when the sport of the recording is known.
 enum TrackCSV {
-    static let formatVersion = 4
+    static let formatVersion = 5
 
     static let columns = [
         "timestamp", "latitude", "longitude", "altitude_m", "speed_mps",
         "horizontal_accuracy_m", "vertical_accuracy_m", "speed_accuracy_mps",
         "course_deg", "course_accuracy_deg", "activity", "activity_confidence", "g_force",
+        "heart_rate_bpm",
     ]
 
     // MARK: Timestamps
@@ -72,6 +74,7 @@ enum TrackCSV {
             format(point.timestamp), signed(point.lat), signed(point.lon), signed(point.altitude), field(speed),
             field(point.horizontalAccuracy), field(point.verticalAccuracy), field(point.speedAccuracy),
             field(point.course), field(point.courseAccuracy), activity, confidence, field(point.gForce),
+            field(point.heartRate),
         ].joined(separator: ",")
     }
 

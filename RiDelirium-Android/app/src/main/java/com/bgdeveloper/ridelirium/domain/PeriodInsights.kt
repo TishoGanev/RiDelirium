@@ -1,5 +1,6 @@
 package com.bgdeveloper.ridelirium.domain
 
+import com.bgdeveloper.ridelirium.friends.Sport
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -40,21 +41,21 @@ data class DayMetrics(
 object PeriodInsights {
     private const val CHANGE_PERCENT = 8
 
-    fun bullets(metrics: List<DayMetrics>, units: Units): List<String> {
+    fun bullets(metrics: List<DayMetrics>, units: Units, sport: Sport = Sport.BOARD): List<String> {
         val days = metrics.filter { it.runs > 0 }.sortedBy { it.dateMillis }
-        if (days.isEmpty()) return listOf("No downhill runs were found in this period.")
+        if (days.isEmpty()) return listOf("No downhill ${sport.words.runs} were found in this period.")
 
         val bullets = mutableListOf<String>()
         val runs = days.sumOf { it.runs }
-        bullets += "${days.size} ride ${if (days.size == 1) "day" else "days"}, $runs runs, " +
+        bullets += "${days.size} ride ${if (days.size == 1) "day" else "days"}, $runs ${sport.words.runs}, " +
             "${units.altitude(days.sumOf { it.vertical })} of descent over ${units.distance(days.sumOf { it.downhillDistance })}."
         if (days.size == 1) {
             bullets += "Only one ride day in this period, so there is no trend to show yet."
             return bullets
         }
         days.maxByOrNull { it.vertical }?.let { bullets += "Most descent in a day: ${units.altitude(it.vertical)} on ${day(it.dateMillis)}." }
-        days.maxByOrNull { it.topSpeed }?.let { bullets += "Fastest day: ${units.speed(it.topSpeed)} on ${day(it.dateMillis)}." }
-        bullets += trends(days, units)
+        if (sport.showsSpeed) days.maxByOrNull { it.topSpeed }?.let { bullets += "Fastest day: ${units.speed(it.topSpeed)} on ${day(it.dateMillis)}." }
+        bullets += trends(days, units, sport)
         return bullets
     }
 
@@ -65,7 +66,7 @@ object PeriodInsights {
      * Earlier rides against later ones. With 2 or 3 days it is the first against the last; with more, the
      * first half against the second. Changes under 8% are noise and are not reported.
      */
-    fun trends(days: List<DayMetrics>, units: Units): List<String> {
+    fun trends(days: List<DayMetrics>, units: Units, sport: Sport = Sport.BOARD): List<String> {
         if (days.size < 2) return emptyList()
         val early: List<DayMetrics>
         val late: List<DayMetrics>
@@ -86,9 +87,11 @@ object PeriodInsights {
             out += "$label is ${abs(change).roundToInt()}% ${if (change > 0) "higher" else "lower"} in your later rides (${format(after)} against ${format(before)})."
         }
 
-        compare("Top speed", early.map { it.topSpeed }.average(), late.map { it.topSpeed }.average()) { units.speed(it) }
+        if (sport.showsSpeed) {
+            compare("Top speed", early.map { it.topSpeed }.average(), late.map { it.topSpeed }.average()) { units.speed(it) }
+        }
         compare("Descent per day", early.map { it.vertical }.average(), late.map { it.vertical }.average()) { units.altitude(it) }
-        compare("Runs per day", early.map { it.runs.toDouble() }.average(), late.map { it.runs.toDouble() }.average()) { it.roundToInt().toString() }
+        compare("${sport.words.runs.replaceFirstChar { it.uppercase() }} per day", early.map { it.runs.toDouble() }.average(), late.map { it.runs.toDouble() }.average()) { it.roundToInt().toString() }
 
         fun perHour(group: List<DayMetrics>): Double {
             val time = group.sumOf { it.totalSeconds }

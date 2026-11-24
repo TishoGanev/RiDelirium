@@ -47,12 +47,20 @@ final class TrackCSVTests: XCTestCase {
         XCTAssertEqual(fields[6...9], ["", "", "", ""])
     }
 
-    func testGForceIsLastColumnAndEmptyWithoutSensor() {
-        XCTAssertEqual(TrackCSV.columns.last, "g_force")
+    func testGForceIsEmptyWithoutSensor() {
+        XCTAssertEqual(TrackCSV.columns.last, "heart_rate_bpm")
+        let gIndex = TrackCSV.columns.firstIndex(of: "g_force")!
         let old = TrackPoint(lat: 42, lon: 23, altitude: 2000, speed: 4, timestamp: base, session: 1)
-        XCTAssertEqual(TrackCSV.row(old).components(separatedBy: ",").last, "")
+        XCTAssertEqual(TrackCSV.row(old).components(separatedBy: ",")[gIndex], "")
         old.gForce = 1.42
-        XCTAssertEqual(TrackCSV.row(old).components(separatedBy: ",").last, "1.42")
+        XCTAssertEqual(TrackCSV.row(old).components(separatedBy: ",")[gIndex], "1.42")
+    }
+
+    func testHeartRateIsLastColumnAndEmptyWithoutWatch() {
+        let point = TrackPoint(lat: 42, lon: 23, altitude: 2000, speed: 4, timestamp: base, session: 1)
+        XCTAssertEqual(TrackCSV.row(point).components(separatedBy: ",").last, "")
+        point.heartRate = 142
+        XCTAssertEqual(TrackCSV.row(point).components(separatedBy: ",").last, "142.0")
     }
 
     func testZeroIsKeptWhenValid() {
@@ -71,7 +79,7 @@ final class TrackCSVTests: XCTestCase {
     func testCSVHasVersionLineMetadataAndHeader() {
         let meta = SessionMetadata(rejectedLowAccuracy: 3, rejectedStale: 1)
         let lines = TrackCSV.csv(points: [], metadata: meta).components(separatedBy: "\n")
-        XCTAssertEqual(lines[0], "# ridelirium-csv-version: 4")
+        XCTAssertEqual(lines[0], "# ridelirium-csv-version: 5")
         XCTAssertTrue(lines.contains("# rejected_low_accuracy: 3"))
         XCTAssertTrue(lines.contains("# rejected_stale: 1"))
         XCTAssertEqual(lines[3], TrackCSV.columns.joined(separator: ","))

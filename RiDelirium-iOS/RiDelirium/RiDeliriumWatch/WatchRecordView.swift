@@ -32,6 +32,20 @@ struct WatchRecordView: View {
 
             Spacer(minLength: 0)
 
+            // Says where the workout and the heart rate go.
+            HStack(spacing: scale.pt(6)) {
+                Image(systemName: "heart.fill")
+                    .foregroundStyle(WatchPalette.pink)
+                Text("APPLE HEALTH")
+                    .tracking(scale.pt(1))
+            }
+            .font(WatchFont.bold(scale.pt(18)))
+            .foregroundStyle(WatchPalette.secondary)
+            .lineLimit(1)
+            .minimumScaleFactor(0.6)
+            .padding(.bottom, scale.pt(8))
+            .accessibilityElement(children: .combine)
+
             if !link.isReachable {
                 Text("OPEN APP ON IPHONE")
                     .font(WatchFont.bold(scale.pt(18)))
