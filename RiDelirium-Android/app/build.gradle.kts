@@ -39,7 +39,7 @@ android {
         minSdk = 24
         targetSdk = 37
         versionCode = buildNumber
-        versionName = "2.0.0"
+        versionName = "2.0.1"
 
         manifestPlaceholders["mapsApiKey"] = mapsApiKey
         manifestPlaceholders["fileProviderAuthority"] = "com.bgdeveloper.ridelirium.fileprovider"
