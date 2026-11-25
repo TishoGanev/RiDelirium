@@ -33,6 +33,7 @@ struct SettingsScreen: View {
     @State private var isDeleting = false
     @State private var deleteFailed = false
     @Environment(\.verticalSizeClass) private var verticalSizeClass
+    @Environment(\.openURL) private var openURL
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -75,6 +76,8 @@ struct SettingsScreen: View {
                         .buttonStyle(SettingsRowPressStyle())
 
                         healthRow
+
+                        socialRows
 
                         deleteDataRow
 
@@ -132,6 +135,7 @@ struct SettingsScreen: View {
                             }
                             .buttonStyle(SettingsRowPressStyle())
                             healthRow
+                            socialRows
                             deleteDataRow
                         }
                         .background(Color.white, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
@@ -180,9 +184,11 @@ struct SettingsScreen: View {
     private var sportRow: some View {
         VStack(spacing: 14) {
             HStack(spacing: 12) {
-                Text("I RIDE")
+                Text(sport == .hike ? "I WALK/RUN" : "I RIDE")
                     .font(.sb(18))
                     .foregroundStyle(.sbCharcoal)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
                 Spacer()
                 SportPicker(selection: $sport)
             }
@@ -248,6 +254,30 @@ struct SettingsScreen: View {
             }
         }
         .buttonStyle(SettingsRowPressStyle())
+    }
+
+    /// Our own accounts, opened in the network's app or the browser.
+    @ViewBuilder
+    private var socialRows: some View {
+        socialRow("FOLLOW ON INSTAGRAM", "https://www.instagram.com/ridelirium.app/")
+        socialRow("FOLLOW ON FACEBOOK", "https://www.facebook.com/profile.php?id=61596767940656")
+    }
+
+    private func socialRow(_ title: String, _ address: String) -> some View {
+        Button {
+            if let url = URL(string: address) { openURL(url) }
+        } label: {
+            SettingsRow {
+                Text(title)
+                    .font(.sb(18))
+                    .foregroundStyle(.sbCharcoal)
+                Spacer()
+                Chevron()
+                    .padding(.trailing, 4)
+            }
+        }
+        .buttonStyle(SettingsRowPressStyle())
+        .accessibilityAddTraits(.isLink)
     }
 
     /// App Store 5.1.1(v): what Ride Together keeps on the server (name, crews, token) can be deleted from the app.

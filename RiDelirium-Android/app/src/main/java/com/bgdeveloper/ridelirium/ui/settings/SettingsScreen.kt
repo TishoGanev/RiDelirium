@@ -42,6 +42,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.OutlinedTextField
@@ -63,6 +64,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bgdeveloper.ridelirium.BuildConfig
@@ -211,6 +213,19 @@ fun SettingsScreen(onOpenAbout: () -> Unit, viewModel: SettingsViewModel = hiltV
             Text("ABOUT RIDELIRIUM", style = sb(18), color = Sb.Charcoal, modifier = Modifier.weight(1f))
             Chevron(Modifier.padding(end = 4.dp), size = 10.dp)
         }
+        // Our own accounts, opened in the network's app or the browser.
+        listOf(
+            "FOLLOW ON INSTAGRAM" to "https://www.instagram.com/ridelirium.app/",
+            "FOLLOW ON FACEBOOK" to "https://www.facebook.com/profile.php?id=61596767940656",
+        ).forEach { (title, url) ->
+            SettingsRow(onClick = {
+                // runCatching: a phone with no browser has nothing to open the link.
+                runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+            }) {
+                Text(title, style = sb(18), color = Sb.Charcoal, modifier = Modifier.weight(1f))
+                Chevron(Modifier.padding(end = 4.dp), size = 10.dp)
+            }
+        }
         // Play account deletion / App Store 5.1.1(v): what Ride Together keeps on the server can be deleted here.
         SettingsRow(onClick = if (deleting) null else ({ confirmingDelete = true })) {
             Text("DELETE MY RIDE TOGETHER DATA", style = sb(16), color = Sb.Red, maxLines = 2, modifier = Modifier.weight(1f))
@@ -274,7 +289,12 @@ private fun SportRow(sport: Sport, me: Friend?, metric: Boolean, onSport: (Sport
     Column {
         Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("I RIDE", style = sb(18), color = Sb.Charcoal, modifier = Modifier.weight(1f))
+                // Shrinks on narrow phones, where the longer hike label would otherwise wrap beside the picker.
+                Text(
+                    if (sport == Sport.HIKE) "I WALK/RUN" else "I RIDE", style = sb(18), color = Sb.Charcoal,
+                    maxLines = 1, autoSize = TextAutoSize.StepBased(minFontSize = 12.sp, maxFontSize = 18.sp),
+                    modifier = Modifier.weight(1f),
+                )
                 SportPicker(sport, onSport)
             }
             Row(
