@@ -75,6 +75,7 @@ import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -741,19 +742,13 @@ private fun CompactCard(ui: TrackUiState, viewModel: TrackViewModel) {
     val units = ui.units
     val small = RoundedCornerShape(16.dp)
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                PulsingDot()
-                Text(
-                    if (s.isPaused) "PAUSED" else "RECORDING · ${units.duration(s.elapsedSeconds)}",
-                    style = sb(12, tracking = 0.04f, tabular = true), color = Sb.Red, maxLines = 1,
-                )
-            }
-            Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                val speed = if (s.isPaused) 0.0 else units.speedValue(s.currentSpeed)
-                Text("%.0f".format(speed), style = sb(44, FontWeight.ExtraBold, lineHeight = 1f, tabular = true), color = Sb.Charcoal)
-                Text(units.speedUnit, style = sb(15), color = Sb.Secondary, modifier = Modifier.padding(bottom = 6.dp))
-            }
+        Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            PulsingDot()
+            Text(
+                if (s.isPaused) "PAUSED" else "RECORDING · ${units.duration(s.elapsedSeconds)}",
+                style = sb(12, tracking = 0.04f, tabular = true), color = Sb.Red, maxLines = 1, softWrap = false,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
         Box(
             Modifier.size(52.dp).clip(small).background(Sb.LightGrey).clickable(onClick = viewModel::togglePause)
@@ -769,6 +764,9 @@ private fun CompactCard(ui: TrackUiState, viewModel: TrackViewModel) {
             Text("STOP", style = sb(18), color = Color.White)
         }
     }
+    Box(Modifier.height(10.dp))
+    // Speed gets the whole width, so it can be as big as the phone allows (same layout as iPhone).
+    HeroSpeed(if (s.isPaused) 0.0 else units.speedValue(s.currentSpeed), units.speedUnit, maxSize = 56, minSize = 28)
     Box(Modifier.height(10.dp))
     Box(Modifier.fillMaxWidth().height(1.dp).background(Color(0xFFEFEFEF)))
     Box(Modifier.height(10.dp))
@@ -803,14 +801,46 @@ private fun LiveHeader(ui: TrackUiState) {
                 style = sb(14, tracking = 0.04f, tabular = true), color = Sb.Red,
             )
         }
-        Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            val speed = if (s.isPaused) 0.0 else ui.units.speedValue(s.currentSpeed)
+        HeroSpeed(
+            if (s.isPaused) 0.0 else ui.units.speedValue(s.currentSpeed), ui.units.speedUnit,
+            maxSize = 80, minSize = 38, tracking = -0.02f, lineHeight = 0.9f,
+        )
+    }
+}
+
+/** Unit beside the hero speed (KM/H, MPH); iPhone uses the same size for BPM. */
+private fun heroUnitSize(numberSize: Int) = maxOf(13, numberSize * 3 / 10)
+
+/**
+ * The live speed at the largest size from [maxSize] down to [minSize] that fits the row, with the unit
+ * always on one line. Measured against at least two digits, so the size doesn't jump as the speed changes.
+ */
+@Composable
+private fun HeroSpeed(speed: Double, unit: String, maxSize: Int, minSize: Int, tracking: Float = 0f, lineHeight: Float = 1f) {
+    val text = "%.0f".format(speed)
+    val measurer = rememberTextMeasurer()
+    val density = LocalDensity.current
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        val maxWidth = constraints.maxWidth
+        val template = "8".repeat(maxOf(2, text.length))
+        val size = remember(maxWidth, template, unit, maxSize, minSize, density) {
+            (maxSize downTo minSize step 2).firstOrNull { s ->
+                val number = measurer.measure(template, sb(s, FontWeight.ExtraBold, tracking = tracking, lineHeight = lineHeight, tabular = true), maxLines = 1, softWrap = false).size.width
+                val unitWidth = measurer.measure(unit, sb(heroUnitSize(s)), maxLines = 1, softWrap = false).size.width
+                number + unitWidth + with(density) { (s * 0.1f).dp.roundToPx() } <= maxWidth
+            } ?: minSize
+        }
+        Row {
             Text(
-                "%.0f".format(speed),
-                style = sb(80, FontWeight.ExtraBold, tracking = -0.02f, lineHeight = 0.9f, tabular = true),
-                color = Sb.Charcoal,
+                text,
+                style = sb(size, FontWeight.ExtraBold, tracking = tracking, lineHeight = lineHeight, tabular = true),
+                color = Sb.Charcoal, maxLines = 1, softWrap = false,
+                modifier = Modifier.alignByBaseline(),
             )
-            Text(ui.units.speedUnit, style = sb(20), color = Sb.Secondary, modifier = Modifier.padding(bottom = 6.dp))
+            Text(
+                unit, style = sb(heroUnitSize(size)), color = Sb.Secondary, maxLines = 1, softWrap = false,
+                modifier = Modifier.alignByBaseline().padding(start = (size * 0.1f).dp),
+            )
         }
     }
 }
@@ -918,7 +948,7 @@ private fun LandscapeTrackStats(ui: TrackUiState, friends: List<Friend>, now: Lo
             Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                 val speed = if (s.isPaused) 0.0 else units.speedValue(s.currentSpeed)
                 Text("%.0f".format(speed), style = sb(40, FontWeight.ExtraBold, lineHeight = 0.95f, tabular = true), color = Sb.Charcoal)
-                Text(units.speedUnit, style = sb(13), color = Sb.Secondary, modifier = Modifier.padding(bottom = 5.dp))
+                Text(units.speedUnit, style = sb(13), color = Sb.Secondary, maxLines = 1, softWrap = false, modifier = Modifier.padding(bottom = 5.dp))
             }
         }
         LandscapeStat("DISTANCE", units.distance(s.distanceMeters), size = 20)
