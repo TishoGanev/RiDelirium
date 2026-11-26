@@ -19,7 +19,8 @@ struct TrackScreen: View {
     @State private var lastCamera: MapCamera?
     @State private var follow = false
     @State private var showingEveryone = false
-    @State private var cardExpanded = false
+    /// How big the recording card is (mini: only pause + stop). Remembered across launches.
+    @AppStorage("trackCardSize") private var cardSizeRaw = CardSize.compact.rawValue
     /// The rider picked on the map; a card offers "wait for me" to them.
     @State private var selectedFriendID: String?
     @State private var ignoreUserCameraUntil: Date = .distantPast
@@ -28,6 +29,10 @@ struct TrackScreen: View {
     @State private var confirmingClearMeet = false
     /// The meet point whose banner was closed on this phone (by its time); the pin stays.
     @State private var hiddenMeetAt: Date?
+
+    private enum CardSize: String { case mini, compact, full }
+    private var cardSize: CardSize { CardSize(rawValue: cardSizeRaw) ?? .compact }
+    private var cardExpanded: Bool { cardSize == .full }
 
     private struct MeetDraft: Identifiable {
         let id = UUID()
@@ -438,10 +443,12 @@ struct TrackScreen: View {
         }
     }
 
-    /// While recording, the compact card keeps the map visible; the grabber opens the full one.
+    /// While recording, the compact card keeps the map visible; the grabber opens the full one, the chevron shrinks it to pause + stop.
     @ViewBuilder
     private var card: some View {
-        if tracker.isTracking && !cardExpanded {
+        if tracker.isTracking && cardSize == .mini {
+            miniCard
+        } else if tracker.isTracking && !cardExpanded {
             compactCard
         } else {
             statsCard
@@ -454,19 +461,71 @@ struct TrackScreen: View {
             .frame(width: 36, height: 4)
             .frame(maxWidth: .infinity)
             .contentShape(Rectangle().inset(by: -20))
-            .onTapGesture { setCardExpanded(!cardExpanded) }
+            .onTapGesture { setCardSize(cardExpanded ? .compact : .full) }
             .gesture(
                 DragGesture(minimumDistance: 8).onEnded { value in
-                    if value.translation.height < -16 { setCardExpanded(true) }
-                    if value.translation.height > 16 { setCardExpanded(false) }
+                    if value.translation.height < -16 { setCardSize(.full) }
+                    if value.translation.height > 16 { setCardSize(cardExpanded ? .compact : .mini) }
                 }
             )
             .accessibilityLabel(cardExpanded ? "Show less" : "Show more")
             .accessibilityAddTraits(.isButton)
     }
 
-    private func setCardExpanded(_ expanded: Bool) {
-        withAnimation(.easeOut(duration: 0.25)) { cardExpanded = expanded }
+    private func setCardSize(_ size: CardSize) {
+        withAnimation(.easeOut(duration: 0.25)) { cardSizeRaw = size.rawValue }
+    }
+
+    /// The smallest card: only pause and stop, so the map shows. The handle brings the compact card back.
+    private var miniCard: some View {
+        HStack(spacing: 10) {
+            Button { setCardSize(.compact) } label: {
+                VStack(spacing: 6) {
+                    Image(systemName: "chevron.up")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(.sbSecondary)
+                    PulsingDot(size: 7, pulses: !tracker.isPaused)
+                }
+                .frame(width: 32, height: 52)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Show ride stats")
+
+            Button(action: togglePause) {
+                Image(systemName: tracker.isPaused ? "play.fill" : "pause.fill")
+                    .font(.system(size: 20, weight: .bold))
+                    .foregroundStyle(.sbGreyButtonText)
+                    .frame(width: 52, height: 52)
+                    .background(Color.sbLightGrey, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            }
+            .buttonStyle(PressableStyle(pressedBrightness: -0.05))
+            .accessibilityLabel(tracker.isPaused ? "Resume" : "Pause")
+
+            Button(action: stopTracking) {
+                HStack(spacing: 8) {
+                    RoundedRectangle(cornerRadius: 3).fill(.white).frame(width: 13, height: 13)
+                    Text("STOP").font(.sb(18))
+                }
+                .foregroundStyle(.white)
+                .padding(.horizontal, 18)
+                .frame(height: 52)
+                .background(Color.sbRed, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .sbShadow(y: 6, blur: 16, opacity: 0.3, color: .sbRed)
+            }
+            .buttonStyle(PressableStyle())
+        }
+        .padding(.vertical, 10)
+        .padding(.leading, 6)
+        .padding(.trailing, 10)
+        .background(Color.white, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .sbShadow(y: 14, blur: 40, opacity: 0.45)
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 12).onEnded { value in
+                if value.translation.height < -16 { setCardSize(.compact) }
+            }
+        )
+        .transition(.scale(scale: 0.9, anchor: .bottomTrailing).combined(with: .opacity))
     }
 
     private var compactCard: some View {
@@ -474,6 +533,17 @@ struct TrackScreen: View {
             grabber
 
             HStack(spacing: 12) {
+                Button { setCardSize(.mini) } label: {
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(.sbSecondary)
+                        .frame(width: 28, height: 52)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .padding(.trailing, -6)
+                .accessibilityLabel("Shrink to pause and stop")
+
                 HStack(spacing: 6) {
                     PulsingDot(size: 7, pulses: !tracker.isPaused)
                     Text(tracker.isPaused ? "PAUSED" : "RECORDING · \(units.duration(tracker.elapsed))")
@@ -749,7 +819,6 @@ struct TrackScreen: View {
     private func stopTracking() {
         tracker.stopTracking()
         follow = false
-        cardExpanded = false
     }
 
     private func togglePause() {

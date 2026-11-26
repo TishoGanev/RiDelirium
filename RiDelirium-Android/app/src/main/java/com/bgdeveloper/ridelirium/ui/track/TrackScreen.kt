@@ -56,6 +56,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.key
 import kotlinx.coroutines.launch
 import com.google.android.gms.maps.model.LatLngBounds
@@ -123,6 +124,8 @@ import com.google.maps.android.compose.Polyline
 import com.google.maps.android.compose.rememberCameraPositionState
 import com.google.maps.android.compose.rememberMarkerState
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.ui.input.pointer.pointerInput
 
 @Composable
 fun TrackScreen(viewModel: TrackViewModel = hiltViewModel(), friendsViewModel: FriendsViewModel = hiltViewModel()) {
@@ -671,12 +674,28 @@ private fun MapButton(ui: TrackUiState, onRecenter: () -> Unit, onFollow: () -> 
     }
 }
 
+/** How big the recording card is (MINI: only pause + stop). Remembered across launches, like iPhone. */
+private enum class CardSize(val key: String) {
+    MINI("mini"), COMPACT("compact"), FULL("full");
+    companion object { fun of(key: String?) = entries.firstOrNull { it.key == key } ?: COMPACT }
+}
+
 @Composable
 private fun StatsCard(ui: TrackUiState, viewModel: TrackViewModel, friends: List<Friend>, now: Long, onCrew: () -> Unit, onStart: () -> Unit) {
     val s = ui.tracking
     val units = ui.units
-    var expanded by remember { mutableStateOf(false) }
-    LaunchedEffect(s.isTracking) { if (!s.isTracking) expanded = false }
+    val context = LocalContext.current
+    val prefs = remember(context) { context.getSharedPreferences("tracking", android.content.Context.MODE_PRIVATE) }
+    var size by remember { mutableStateOf(CardSize.of(prefs.getString("trackCardSize", null))) }
+    val setSize: (CardSize) -> Unit = {
+        size = it
+        prefs.edit().putString("trackCardSize", it.key).apply()
+    }
+    if (s.isTracking && size == CardSize.MINI) {
+        MiniCard(ui, viewModel, onExpand = { setSize(CardSize.COMPACT) })
+        return
+    }
+    val expanded = size == CardSize.FULL
     val compact = s.isTracking && !expanded
     val shape = RoundedCornerShape(if (compact) 24.dp else 28.dp)
     Column(
@@ -686,11 +705,15 @@ private fun StatsCard(ui: TrackUiState, viewModel: TrackViewModel, friends: List
             .padding(start = if (compact) 14.dp else 18.dp, end = if (compact) 14.dp else 18.dp, top = if (s.isTracking) 8.dp else 20.dp, bottom = if (compact) 14.dp else 16.dp),
     ) {
         if (s.isTracking) {
-            Grabber(expanded) { expanded = !expanded }
+            Grabber(
+                expanded,
+                onToggle = { setSize(if (expanded) CardSize.COMPACT else CardSize.FULL) },
+                onDrag = { up -> setSize(if (up) CardSize.FULL else if (expanded) CardSize.COMPACT else CardSize.MINI) },
+            )
             Box(Modifier.height(if (compact) 10.dp else 12.dp))
         }
         if (compact) {
-            CompactCard(ui, viewModel)
+            CompactCard(ui, viewModel, onShrink = { setSize(CardSize.MINI) })
             return@Column
         }
         if (s.isTracking) {
@@ -726,22 +749,89 @@ private fun StatsCard(ui: TrackUiState, viewModel: TrackViewModel, friends: List
 }
 
 @Composable
-private fun Grabber(expanded: Boolean, onToggle: () -> Unit) {
+private fun Grabber(expanded: Boolean, onToggle: () -> Unit, onDrag: (up: Boolean) -> Unit) {
     Box(
         Modifier.fillMaxWidth().height(20.dp)
             .semantics { contentDescription = if (expanded) "Show less" else "Show more" }
-            .clickable(onClick = onToggle),
+            .clickable(onClick = onToggle)
+            .verticalSwipe(onDrag),
         contentAlignment = Alignment.Center,
     ) { Box(Modifier.size(36.dp, 4.dp).clip(CircleShape).background(Color(0xFFD6D6D6))) }
 }
 
-/** While recording, the compact card keeps the map visible; the grabber opens the full one. */
+/** A swipe of more than 16 dp up or down (same threshold as iPhone). */
 @Composable
-private fun CompactCard(ui: TrackUiState, viewModel: TrackViewModel) {
+private fun Modifier.verticalSwipe(onSwipe: (up: Boolean) -> Unit): Modifier {
+    // pointerInput(Unit) is never restarted, so it must read the latest callback, not the first one it saw.
+    val current by rememberUpdatedState(onSwipe)
+    return pointerInput(Unit) {
+        var total = 0f
+        detectVerticalDragGestures(
+            onDragStart = { total = 0f },
+            onDragEnd = { if (kotlin.math.abs(total) > 16.dp.toPx()) current(total < 0) },
+        ) { _, dy -> total += dy }
+    }
+}
+
+@Composable
+private fun PauseButton(paused: Boolean, onClick: () -> Unit) {
+    Box(
+        Modifier.size(52.dp).clip(RoundedCornerShape(16.dp)).background(Sb.LightGrey).clickable(onClick = onClick)
+            .semantics { contentDescription = if (paused) "Resume" else "Pause" },
+        contentAlignment = Alignment.Center,
+    ) { Text(if (paused) "▶" else "❚❚", style = sb(18), color = Sb.GreyButtonText) }
+}
+
+@Composable
+private fun SmallStopButton(onClick: () -> Unit) {
+    val small = RoundedCornerShape(16.dp)
+    Row(
+        Modifier.height(52.dp).shadow(8.dp, small, ambientColor = Sb.Red.copy(0.3f), spotColor = Sb.Red.copy(0.3f))
+            .clip(small).background(Sb.Red).clickable(onClick = onClick).padding(horizontal = 18.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.size(13.dp).clip(RoundedCornerShape(3.dp)).background(Color.White))
+        Text("STOP", style = sb(18), color = Color.White)
+    }
+}
+
+/** The smallest card: only pause and stop, so the map shows. The handle (or a swipe up) brings the compact card back. */
+@Composable
+private fun MiniCard(ui: TrackUiState, viewModel: TrackViewModel, onExpand: () -> Unit) {
+    val shape = RoundedCornerShape(24.dp)
+    Row(
+        Modifier
+            .shadow(20.dp, shape, ambientColor = Color.Black.copy(0.45f), spotColor = Color.Black.copy(0.45f))
+            .clip(shape).background(Color.White)
+            .verticalSwipe { up -> if (up) onExpand() }
+            .padding(start = 6.dp, end = 10.dp, top = 10.dp, bottom = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Column(
+            Modifier.size(32.dp, 52.dp).clickable(onClick = onExpand).semantics { contentDescription = "Show ride stats" },
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterVertically),
+        ) {
+            Chevron(Modifier.rotate(-90f), color = Sb.Secondary, size = 12.dp)
+            PulsingDot()
+        }
+        PauseButton(ui.tracking.isPaused, viewModel::togglePause)
+        SmallStopButton(viewModel::stop)
+    }
+}
+
+/** While recording, the compact card keeps the map visible; the grabber opens the full one, the chevron shrinks it to pause + stop. */
+@Composable
+private fun CompactCard(ui: TrackUiState, viewModel: TrackViewModel, onShrink: () -> Unit) {
     val s = ui.tracking
     val units = ui.units
-    val small = RoundedCornerShape(16.dp)
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Box(
+            Modifier.size(28.dp, 52.dp).clickable(onClick = onShrink)
+                .semantics { contentDescription = "Shrink to pause and stop" },
+            contentAlignment = Alignment.Center,
+        ) { Chevron(Modifier.rotate(90f), color = Sb.Secondary, size = 12.dp) }
         Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             PulsingDot()
             Text(
@@ -750,19 +840,8 @@ private fun CompactCard(ui: TrackUiState, viewModel: TrackViewModel) {
                 overflow = TextOverflow.Ellipsis,
             )
         }
-        Box(
-            Modifier.size(52.dp).clip(small).background(Sb.LightGrey).clickable(onClick = viewModel::togglePause)
-                .semantics { contentDescription = if (s.isPaused) "Resume" else "Pause" },
-            contentAlignment = Alignment.Center,
-        ) { Text(if (s.isPaused) "▶" else "❚❚", style = sb(18), color = Sb.GreyButtonText) }
-        Row(
-            Modifier.height(52.dp).shadow(8.dp, small, ambientColor = Sb.Red.copy(0.3f), spotColor = Sb.Red.copy(0.3f))
-                .clip(small).background(Sb.Red).clickable(onClick = viewModel::stop).padding(horizontal = 18.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Box(Modifier.size(13.dp).clip(RoundedCornerShape(3.dp)).background(Color.White))
-            Text("STOP", style = sb(18), color = Color.White)
-        }
+        PauseButton(s.isPaused, viewModel::togglePause)
+        SmallStopButton(viewModel::stop)
     }
     Box(Modifier.height(10.dp))
     // Speed gets the whole width, so it can be as big as the phone allows (same layout as iPhone).
