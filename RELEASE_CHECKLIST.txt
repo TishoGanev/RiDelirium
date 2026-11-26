@@ -40,11 +40,6 @@ I6  OPEN      Universal links moved to ridelirium.com (see DONE B11). Build and 
 
 ANDROID
 -------
-A2  OPEN      ridelirium.com/.well-known/assetlinks.json returns 404 because
-              ANDROID_CERT_SHA256 is not set, so invite links do not open the Android app.
-              After the first upload, put the Play app-signing SHA-256 (Play Console > Setup >
-              App signing; not the upload key) in the server .env and run the server
-              deploy.sh. Then ridelirium.com/.well-known/assetlinks.json must return 200.
 A3  CHECK     Maps API key: if it is restricted by package + SHA-1, add the Play app-signing
               SHA-1 in Google Cloud, or the map is blank in store installs.
 A6  OPTIONAL  R8 is off for release (optimization enable = false). Works, larger APK.
@@ -53,8 +48,10 @@ A7  OPEN      Play Console forms:
                   diagnostics (Firebase Crashlytics; not shared, not for ads).
                 - Foreground service declaration for the location type (needs a demo video).
                 - Content rating, target audience, privacy policy URL.
-A8  CHECK     Has a long lead time, so check it first. If the Play developer account is personal and was created after Nov 2023,
-              Google requires a closed test with 12 testers for 14 days before production.
+A8  OPEN      Closed test running (Play Console dashboard, 2026-11-26): release published and
+              12+ testers opted in; waiting on 14 days with at least 12 of them. Keep them
+              opted in without a break (spares help). Then "Apply for production" and answer
+              the questions about the test; Production is inactive until Google approves.
 A9  OPEN      Play Console > App content > Target audience: the answer includes children, so Play
               asks about the Families Policy in Data safety. The app is not for children (live
               location sharing, Crashlytics, Firebase Messaging). Untick every group under 13,
@@ -160,3 +157,8 @@ A1  2026-11-26  App created in Play Console and the first bundle uploaded (marke
 B10 2026-11-26  The work since e1263c4 is committed and pushed (release/2.0 at 0a96b91, same
                 as develop), BUILD_NUMBER included. keystore.properties and the .jks are not
                 tracked; keep it that way.
+A2  2026-11-26  ANDROID_CERT_SHA256 (three fingerprints from the Play Deep links page) set in
+                the server .env, local and NAS; containers recreated. Checked live:
+                ridelirium.com/.well-known/assetlinks.json returns 200 and Google's Digital
+                Asset Links API lists the package. Not checked: the Deep links page showing
+                verified, or a link opening the app on a phone.
