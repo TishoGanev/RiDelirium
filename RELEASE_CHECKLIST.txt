@@ -13,35 +13,8 @@ Store setup steps (bundle ids, review notes, cron) are in RiDelirium-iOS/RiDelir
 Features for after 2.0 (paid passes, Stories, parity polish) are in NEXT_VERSION.txt.
 
 
-BOTH STORES (BLOCKERS)
-----------------------
-B6  OPEN      EU Digital Services Act: declare "not a trader" in App Store Connect (Business)
-              and Play Console while the app is free, so no name, address or phone shows on
-              EU listings.
-B9  OPEN      Device test of the end of sharing, on iPhone and Android:
-                - A rider in no crew sends no position, even while recording.
-                - Join a crew with an end 15 minutes away: the reminder "Sharing with <crew>
-                  ends at hh:mm" comes 10 minutes before; +1 HOUR moves the end; a tap opens
-                  Ride Together.
-                - When the time runs out, the others get "<name> left <crew>" within a minute
-                  and the rider's app drops the crew and stops sharing.
-
-iOS
----
-I6  OPEN      Universal links moved to ridelirium.com (see DONE B11). Build and install a new
-              iOS build (new Associated Domains entitlement), then on a real iPhone tap
-              https://ridelirium.com/join/<real crew code> from Messages or Notes: it must
-              open the app and join. Allow up to a day for Apple's cache. Old
-              ridersapi.sportco.net links no longer open anything.
-
-              Already fine: app, watch and widget all MARKETING_VERSION 2.0.0, build number
-              bumps on every build, API_HOST set (API calls only), live
-              ridelirium.com/.well-known/apple-app-site-association returns 200 and is correct.
-
 ANDROID
 -------
-A3  CHECK     Maps API key: if it is restricted by package + SHA-1, add the Play app-signing
-              SHA-1 in Google Cloud, or the map is blank in store installs.
 A6  OPTIONAL  R8 is off for release (optimization enable = false). Works, larger APK.
 A7  OPEN      Play Console forms:
                 - Data safety: precise location, name, device or other IDs, crash logs and
@@ -58,15 +31,6 @@ A9  OPEN      Play Console > App content > Target audience: the answer includes 
               pick teens and adults only (or 18+), answer "No" to "might your app appeal to
               children?", save, then Data safety no longer shows the Families question. Keep the
               content rating and the App Store age rating consistent with it.
-
-AFTER THE STORE LISTINGS EXIST
-------------------------------
-L1  OPEN      Replace GOOGLE_PLAY_URL_HERE in RiDelirium-Web/index.html (lines 40 and 243)
-              and put the Play link on the "~*android" line in RiDelirium-Web/deploy/site.conf
-              (the ridelirium.app/get redirect), then redeploy the site. The App Store link
-              is in (see DONE).
-L2  OPEN      Set PLAY_STORE_URL in the server .env (or as the default in docker-compose.yml,
-              like APP_STORE_URL) so the /join/CODE page shows the Android button too.
 
 DONE
 ----
@@ -162,3 +126,22 @@ A2  2026-11-26  ANDROID_CERT_SHA256 (three fingerprints from the Play Deep links
                 ridelirium.com/.well-known/assetlinks.json returns 200 and Google's Digital
                 Asset Links API lists the package. Not checked: the Deep links page showing
                 verified, or a link opening the app on a phone.
+B6  2026-11-26  EU Digital Services Act: "not a trader" declared in App Store Connect and Play
+                Console (confirmed by the owner; not checked from here). Switch to trader
+                before selling anything (C1 in NEXT_VERSION.txt).
+B9  2026-11-26  Device test of the end of sharing on iPhone and Android: nothing sent with no
+                crew, reminder 10 minutes before the end, +1 HOUR, and "left" notice when
+                the time runs out (confirmed by the owner; not checked from here).
+I6  2026-11-26  Universal links on ridelirium.com checked on a real iPhone with a new build:
+                an invite link opens the app and joins (confirmed by the owner; not checked
+                from here). Old ridersapi.sportco.net links no longer open anything.
+A3  2026-11-26  Maps API key checked: the map shows in the closed-testing install, which is
+                signed with the Play app-signing key (confirmed by the owner).
+L1  2026-11-26  Google Play part: the Play link is on both buttons of index.html and on the
+                "~*android" line of site.conf; checked live, including the /get redirect.
+                The listing itself still returns 404 until production is approved (A8), so
+                until then those links only work for opted-in testers.
+L2  2026-11-26  Google Play part: PLAY_STORE_URL defaults to the Play link in
+                docker-compose.yml and the running ridersapi container has it, so the
+                /join/CODE page offers Android too (not seen on a real invite page). The
+                link returns 404 until production is approved (A8).
