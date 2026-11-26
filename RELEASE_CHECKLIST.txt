@@ -5,7 +5,7 @@ Open items first. When an item is done, move it to DONE at the bottom with the d
 what was done. Ids never change. Checked from code, configs and the live endpoints; no
 build was made by this checklist and nothing was run on a device unless DONE says so.
 
-Last updated: 2026-11-20
+Last updated: 2026-11-26
 
 Status words:  OPEN = must be done, CHECK = verify, it may already be fine,
                DECIDE = needs a product decision, OPTIONAL = nice to have.
@@ -40,11 +40,6 @@ I6  OPEN      Universal links moved to ridelirium.com (see DONE B11). Build and 
 
 ANDROID
 -------
-A1  OPEN      Signing is ready (see DONE). Left: create the app in Play Console (Play App
-              Signing on), upload app-release.aab to an internal testing track, install it
-              from there and check Settings reads VERSION 2.0.0 (the BUILD_NUMBER). Rebuild first: the bundle
-              from before A5 still has the test-notification row. Run ./bump_build_number.sh
-              before every upload (BUILD_NUMBER is the versionCode too); Play rejects a repeat.
 A2  OPEN      ridelirium.com/.well-known/assetlinks.json returns 404 because
               ANDROID_CERT_SHA256 is not set, so invite links do not open the Android app.
               After the first upload, put the Play app-signing SHA-256 (Play Console > Setup >
@@ -66,11 +61,6 @@ A9  OPEN      Play Console > App content > Target audience: the answer includes 
               pick teens and adults only (or 18+), answer "No" to "might your app appeal to
               children?", save, then Data safety no longer shows the Families question. Keep the
               content rating and the App Store age rating consistent with it.
-
-B10 OPEN      Everything since e1263c4 is uncommitted on release/2.0 (Settings version footer
-              and scroll, ridelirium.com invite links, signing config, A5). Commit it, and
-              commit BUILD_NUMBER (shared by iOS, Android and the API). Never commit
-              keystore.properties or the .jks (gitignored).
 
 AFTER THE STORE LISTINGS EXIST
 ------------------------------
@@ -163,3 +153,10 @@ B8  2026-11-20  Website redeployed and checked live: privacy page covers Crashly
                 Nearby riders or Meta line, says "in no crew, nothing is sent", effective
                 November 20, 2026; landing and support pages have no Story sharing or nearby
                 joining, no "snowboarding workout"; both App Store buttons link to the app.
+A1  2026-11-26  App created in Play Console and the first bundle uploaded (marked done by the
+                owner; not checked from here). For every further upload run
+                ./bump_build_number.sh first (BUILD_NUMBER is the versionCode too); Play
+                rejects a repeat.
+B10 2026-11-26  The work since e1263c4 is committed and pushed (release/2.0 at 0a96b91, same
+                as develop), BUILD_NUMBER included. keystore.properties and the .jks are not
+                tracked; keep it that way.
