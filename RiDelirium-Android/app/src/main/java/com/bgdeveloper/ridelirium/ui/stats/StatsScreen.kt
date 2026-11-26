@@ -226,9 +226,9 @@ private fun RideCard(session: SessionSummary, ui: StatsUiState, modifier: Modifi
 @Composable
 private fun RouteSketch(session: SessionSummary, modifier: Modifier) {
     val points = remember(session.placeKey, session.points.size) {
-        val all = session.points
+        val all = session.coordinates
         val step = maxOf(1, all.size / 400)
-        all.filterIndexed { i, _ -> i % step == 0 || i == all.size - 1 }.map { it.lat to it.lon }
+        all.filterIndexed { i, _ -> i % step == 0 || i == all.size - 1 }.map { it.latitude to it.longitude }
     }
     Canvas(modifier) {
         if (points.size < 2) return@Canvas

@@ -162,6 +162,22 @@ enum DistanceRule {
 
     /// Distance added at each point, 0 for the first. A dropped step keeps the old anchor, so a slow
     /// but real drift still counts once it is larger than the accuracy.
+    /// For drawing a saved ride: which point's position to show for each point. Standing and noise-sized
+    /// points repeat the last real one, so the map stays clean while the recording keeps every fix.
+    static func mapIndices(_ points: [TrackPoint], segments: [Segment]) -> [Int] {
+        let steps = steps(points)
+        var still = [Bool](repeating: false, count: points.count)
+        for segment in segments where segment.activity == .still {
+            // The first point of a stop is where the rider stopped; the rest are drift around it.
+            for i in stride(from: segment.startIndex + 1, through: segment.endIndex, by: 1) { still[i] = true }
+        }
+        var shown = 0
+        return points.indices.map { i in
+            if !still[i] && steps[i] > 0 { shown = i }
+            return shown
+        }
+    }
+
     static func steps(_ points: [TrackPoint]) -> [Double] {
         var steps = [Double](repeating: 0, count: points.count)
         guard var anchor = points.first.map({ CLLocation(latitude: $0.lat, longitude: $0.lon) }) else { return steps }

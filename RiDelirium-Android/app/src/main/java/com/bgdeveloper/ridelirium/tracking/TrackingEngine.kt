@@ -18,7 +18,7 @@ import com.bgdeveloper.ridelirium.domain.Activity
 import com.bgdeveloper.ridelirium.domain.DistanceRule
 import com.bgdeveloper.ridelirium.domain.FixFilter
 import com.bgdeveloper.ridelirium.domain.LiveActivityClassifier
-import com.bgdeveloper.ridelirium.domain.MotionAutoControl
+import com.bgdeveloper.ridelirium.domain.SessionSummary
 import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationResult
@@ -91,15 +91,11 @@ class TrackingEngine @Inject constructor(
     private var segmentStart = 0L
     private var accumulatedMillis = 0L
     private var fixFilter = FixFilter(ACCURACY_THRESHOLD)
-    private val autoControl = MotionAutoControl()
     /** The ride in progress, kept on disk so a ride survives Android killing the app. */
     private val activeRide = context.getSharedPreferences("activeRide", Context.MODE_PRIVATE)
     private val restoring = Mutex()
 
     init {
-        // Motion activity decides auto start/stop; settings decide whether it is listened to at all.
-        scope.launch { motion.latest.collect { applyMotion() } }
-        scope.launch { settings.autoStart.collect { refreshMotionMonitoring() } }
         // Android killed the app mid-ride (battery saver, low memory): pick the ride up where it was.
         scope.launch { restoreActiveRide() }
     }
@@ -118,7 +114,6 @@ class TrackingEngine @Inject constructor(
             lastLocation = null
             classifier.reset()
             fixFilter = FixFilter(ACCURACY_THRESHOLD, notBeforeMillis = System.currentTimeMillis())
-            autoControl.reset()
             accumulatedMillis = 0
             _state.update {
                 it.copy(
@@ -137,8 +132,8 @@ class TrackingEngine @Inject constructor(
     }
 
     /**
-     * Keeps the process in the foreground. Android 12+ refuses this from the background (where auto start fires
-     * from); the ride then records only while the process lives, so the failure is logged rather than hidden.
+     * Keeps the process in the foreground. Android 12+ can refuse this from the background (a restore after a
+     * kill); the ride then records only while the process lives, so the failure is logged rather than hidden.
      */
     private fun startService() {
         runCatching { ContextCompat.startForegroundService(context, Intent(context, TrackingService::class.java)) }
@@ -163,7 +158,6 @@ class TrackingEngine @Inject constructor(
         lastLocation = null
         classifier.reset()
         fixFilter = FixFilter(ACCURACY_THRESHOLD, notBeforeMillis = now)
-        autoControl.reset()
         // The clock kept running while the app was dead, unless the ride was paused.
         accumulatedMillis = activeRide.getLong("accumulated", 0) +
             if (paused) 0 else maxOf(0L, now - activeRide.getLong("segmentStart", now))
@@ -172,7 +166,7 @@ class TrackingEngine @Inject constructor(
                 isTracking = true, isPaused = paused,
                 distanceMeters = activeRide.getFloat("distance", 0f).toDouble(),
                 maxSpeed = maxOf(activeRide.getFloat("maxSpeed", 0f).toDouble(), points.maxOfOrNull { p -> p.speed } ?: 0.0),
-                coordinates = points.map { p -> LatLng(p.lat, p.lon) },
+                coordinates = SessionSummary(saved, points).coordinates,
                 elapsedSeconds = accumulatedMillis / 1000, activity = Activity.STILL,
                 gForce = null, maxGForce = points.mapNotNull { p -> p.gForce }.maxOrNull(),
             )
@@ -240,7 +234,6 @@ class TrackingEngine @Inject constructor(
             while (true) {
                 delay(1000)
                 _state.update { it.copy(elapsedSeconds = currentElapsedMillis() / 1000, gForce = gSensor.latest ?: it.gForce) }
-                applyMotion()
                 // Distance and top speed for a restore after the app is killed; points are already in the database.
                 if (++tick % 10 == 0 && _state.value.isTracking) saveActiveRide()
             }
@@ -290,11 +283,12 @@ class TrackingEngine @Inject constructor(
             val step = if (last == null) 0.0 else location.distanceTo(last).toDouble()
             val counts = last == null || DistanceRule.counts(step, rawSpeed, accuracy?.toDouble())
             if (counts) lastLocation = location
+            // The map line grows only with real steps; the fix itself is saved below either way.
             _state.update {
                 it.copy(
                     distanceMeters = it.distanceMeters + if (counts) step else 0.0,
                     maxSpeed = maxOf(it.maxSpeed, speed),
-                    coordinates = it.coordinates + LatLng(location.latitude, location.longitude),
+                    coordinates = if (counts) it.coordinates + LatLng(location.latitude, location.longitude) else it.coordinates,
                     activity = activity,
                 )
             }
@@ -321,20 +315,9 @@ class TrackingEngine @Inject constructor(
         scope.launch(Dispatchers.IO) { repository.addPoint(point) }
     }
 
-    /** Motion data is only listened to while recording, or when auto start needs it to notice driving. */
+    /** Motion data is only listened to while recording; it fills the activity column of the CSV. */
     private fun refreshMotionMonitoring() {
-        if (_state.value.isTracking || settings.autoStart.value) motion.start() else motion.stop()
-    }
-
-    private fun applyMotion() {
-        autoControl.autoStart = settings.autoStart.value
-        autoControl.autoStop = settings.autoStop.value
-        autoControl.stopAfterMillis = settings.stopMinutes.value * 60_000L
-        when (autoControl.evaluate(motion.latest.value, System.currentTimeMillis(), _state.value.isTracking)) {
-            MotionAutoControl.Action.START -> start()
-            MotionAutoControl.Action.STOP -> stop()
-            MotionAutoControl.Action.NONE -> Unit
-        }
+        if (_state.value.isTracking) motion.start() else motion.stop()
     }
 
     private companion object {

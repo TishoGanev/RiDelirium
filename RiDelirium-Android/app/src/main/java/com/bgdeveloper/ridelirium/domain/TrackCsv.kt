@@ -111,6 +111,24 @@ object DistanceRule {
     }
 
     /**
+     * For drawing a saved ride: which point's position to show for each point. Standing and noise-sized
+     * points repeat the last real one, so the map stays clean while the recording keeps every fix.
+     */
+    fun mapIndices(points: List<TrackPointEntity>, segments: List<Segment>): IntArray {
+        val steps = steps(points)
+        val still = BooleanArray(points.size)
+        for (segment in segments) {
+            // The first point of a stop is where the rider stopped; the rest are drift around it.
+            if (segment.activity == Activity.STILL) for (i in segment.startIndex + 1..segment.endIndex) still[i] = true
+        }
+        var shown = 0
+        return IntArray(points.size) { i ->
+            if (!still[i] && steps[i] > 0) shown = i
+            shown
+        }
+    }
+
+    /**
      * Distance added at each point, 0 for the first. A dropped step keeps the old anchor, so a slow but
      * real drift still counts once it is larger than the accuracy.
      */

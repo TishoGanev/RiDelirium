@@ -21,7 +21,7 @@
 		<true/>
 	</dict>
 	<key>NSMotionUsageDescription</key>
-	<string>RiDelirium uses motion activity to mark when you are driving, walking or standing in your recording, and can start or stop it for you.</string>
+	<string>RiDelirium uses motion activity to mark when you are driving, walking or standing in your recording.</string>
 	<key>UIAppFonts</key>
 	<array>
 		<string>OpenSans-CondensedSemiBold.ttf</string>

@@ -8,7 +8,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
 import com.bgdeveloper.ridelirium.friends.Friend
 import com.bgdeveloper.ridelirium.friends.Sport
-import com.bgdeveloper.ridelirium.tracking.MotionMonitor
 import com.bgdeveloper.ridelirium.domain.Units
 import com.bgdeveloper.ridelirium.ui.track.RiderTag
 import android.Manifest
@@ -54,8 +53,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -85,9 +82,6 @@ fun SettingsScreen(onOpenAbout: () -> Unit, viewModel: SettingsViewModel = hiltV
     val metric by viewModel.metric.collectAsStateWithLifecycle()
     val name by viewModel.name.collectAsStateWithLifecycle()
     val initials by viewModel.initials.collectAsStateWithLifecycle()
-    val autoStart by viewModel.autoStart.collectAsStateWithLifecycle()
-    val autoStop by viewModel.autoStop.collectAsStateWithLifecycle()
-    val stopMinutes by viewModel.stopMinutes.collectAsStateWithLifecycle()
     val sport by viewModel.sport.collectAsStateWithLifecycle()
     val me by viewModel.me.collectAsStateWithLifecycle()
     var editing by remember { mutableStateOf(false) }
@@ -166,25 +160,6 @@ fun SettingsScreen(onOpenAbout: () -> Unit, viewModel: SettingsViewModel = hiltV
             SegmentedControl(listOf("METRIC" to true, "IMPERIAL" to false), metric, viewModel::setMetric)
         }
         SportRow(sport, me, metric, viewModel::setSport)
-        // Start and stop from motion activity. Recorded points are never deleted by it.
-        // Hidden below Android 10, where motion activity is not available.
-        if (MotionMonitor.isSupported) {
-            SettingsRow {
-                Text("START WHEN DRIVING", style = sb(18), color = Sb.Charcoal, modifier = Modifier.weight(1f))
-                Switch(checked = autoStart, onCheckedChange = viewModel::setAutoStart, colors = SwitchDefaults.colors(checkedTrackColor = Sb.Red))
-            }
-            SettingsRow {
-                Text("STOP WHEN IDLE", style = sb(18), color = Sb.Charcoal, modifier = Modifier.weight(1f))
-                Switch(checked = autoStop, onCheckedChange = viewModel::setAutoStop, colors = SwitchDefaults.colors(checkedTrackColor = Sb.Red))
-            }
-            if (autoStop) {
-                SettingsRow {
-                    Text("AFTER $stopMinutes MIN STANDING OR WALKING", style = sb(15), color = Sb.Charcoal, modifier = Modifier.weight(1f))
-                    StepButton("−") { viewModel.setStopMinutes(stopMinutes - 1) }
-                    StepButton("+") { viewModel.setStopMinutes(stopMinutes + 1) }
-                }
-            }
-        }
         // Push alerts (crew joined, wait for me) need all three: permission, the app not stopped, and no battery restriction.
         SettingsRow(onClick = {
             if (!notificationsOn && Build.VERSION.SDK_INT >= 33) permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
@@ -271,14 +246,6 @@ fun SettingsScreen(onOpenAbout: () -> Unit, viewModel: SettingsViewModel = hiltV
     if (editing) {
         NameDialog(initial = name.orEmpty(), onDismiss = { editing = false }, onSave = { viewModel.setName(it); editing = false })
     }
-}
-
-@Composable
-private fun StepButton(label: String, onClick: () -> Unit) {
-    Box(
-        Modifier.size(40.dp).clip(CircleShape).background(Sb.LightGrey).clickable(onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) { Text(label, style = sb(22), color = Sb.GreyButtonText) }
 }
 
 /** What the rider rides, and a preview of the tag friends see for it. */

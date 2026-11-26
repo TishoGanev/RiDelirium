@@ -3,6 +3,7 @@ package com.bgdeveloper.ridelirium
 import com.bgdeveloper.ridelirium.data.TrackPointEntity
 import com.bgdeveloper.ridelirium.domain.Activity
 import com.bgdeveloper.ridelirium.domain.ActivityDetector
+import com.bgdeveloper.ridelirium.domain.DistanceRule
 import com.bgdeveloper.ridelirium.domain.LiveActivityClassifier
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -34,6 +35,22 @@ class ActivityDetectorTest {
         assertEquals(1, analysis.lifts.size)
         assertTrue("downhill distance ${analysis.downhillDistance}", analysis.downhillDistance in 1200.0..2000.0)
         assertTrue("vertical ${analysis.totalVertical}", analysis.totalVertical in 300.0..400.0)
+    }
+
+    @Test
+    fun `map holds one position while standing and moves again after`() {
+        val run = leg(null, 120, -1.5, 0.00006, 7.0)
+        // Drift around the stop: back and forth by about a metre.
+        val still = leg(run.last(), 120, 0.0, 0.0, 0.1).mapIndexed { i, p -> p.copy(lat = p.lat + if (i % 2 == 0) 0.00001 else -0.00001) }
+        val lift = leg(still.last(), 200, +0.9, -0.00002, 2.5)
+        val points = run + still + lift
+        val segments = ActivityDetector.analyze(points).segments
+        val shown = DistanceRule.mapIndices(points, segments)
+        val stop = segments.single { it.activity == Activity.STILL }
+
+        assertEquals(points.size, shown.size)
+        assertEquals(1, (stop.startIndex..stop.endIndex).map { shown[it] }.distinct().size)
+        assertEquals(points.lastIndex, shown.last())
     }
 
     @Test

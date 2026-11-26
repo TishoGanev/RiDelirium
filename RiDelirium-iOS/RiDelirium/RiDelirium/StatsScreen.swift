@@ -16,7 +16,10 @@ struct SessionSummary: Identifiable {
     var startDate: Date { points.first?.timestamp ?? Date() }
     var endDate: Date { points.last?.timestamp ?? Date() }
     var maxSpeed: Double { analysis.segments.isEmpty ? (points.map(\.speed).max() ?? 0) : analysis.movingMaxSpeed }
-    var coordinates: [CLLocationCoordinate2D] { points.map(\.coordinate) }
+    /// The route as drawn on maps: one entry per point, with standing noise held at the last real position.
+    var coordinates: [CLLocationCoordinate2D] {
+        DistanceRule.mapIndices(points, segments: analysis.segments).map { points[$0].coordinate }
+    }
 
     /// What the rider rode, as stored with the recording. Rides saved before it was stored fall back to the
     /// sport currently chosen in Settings.

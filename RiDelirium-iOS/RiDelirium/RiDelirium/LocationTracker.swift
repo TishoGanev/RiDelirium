@@ -78,7 +78,6 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
 
     private var fixFilter = FixFilter(maxHorizontalAccuracy: LocationTracker.accuracyThreshold)
     private let motion = MotionActivityMonitor()
-    private var autoControl = MotionAutoControl()
 
     override init() {
         super.init()
@@ -89,8 +88,6 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
         manager.activityType = .other
         manager.desiredAccuracy = kCLLocationAccuracyThreeKilometers
         manager.pausesLocationUpdatesAutomatically = false
-        motion.onChange = { [weak self] sample in self?.applyMotion(sample) }
-        refreshMotionMonitoring()
         authorizationStatus = manager.authorizationStatus
         startUpdatingIfAuthorized()
     }
@@ -120,7 +117,6 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
         startAltitude = currentLocation?.altitude
         lastLocation = nil
         fixFilter = FixFilter(maxHorizontalAccuracy: Self.accuracyThreshold, notBefore: startTime)
-        autoControl.reset()
         traveledDistance = 0
         maxSpeed = 0
         descent = 0
@@ -136,7 +132,7 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
         isTracking = true
         isPaused = false
         manager.desiredAccuracy = kCLLocationAccuracyBest
-        refreshMotionMonitoring()
+        motion.start()
 
         startTimer()
         liveActivity.start(liveActivityState)
@@ -176,7 +172,6 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
                 guard let self else { return }
                 self.elapsed = self.currentSegmentElapsed()
                 if let g = self.gSensor.latest { self.currentG = g }
-                self.applyMotion(self.motion.latest)
             }
         }
     }
@@ -192,7 +187,7 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
         UserDefaults.standard.set(traveledDistance, forKey: Self.lastRideDistanceKey)
         fixFilter.metadata.save(session: session)
         manager.desiredAccuracy = kCLLocationAccuracyThreeKilometers
-        refreshMotionMonitoring()
+        motion.stop()
         segmentStart = nil
         durationTimer?.invalidate()
         durationTimer = nil
@@ -278,15 +273,17 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
             if let last = lastLocation {
                 let step = location.distance(from: last)
                 // Noise-sized steps are skipped and the anchor stays, so slow real movement still adds up.
+                // The map line grows only with real steps; the fix itself is saved below either way.
                 if DistanceRule.counts(displacement: step, speed: location.speed, accuracy: location.horizontalAccuracy) {
                     traveledDistance += step
                     lastLocation = location
+                    trackCoordinates.append(location.coordinate)
                 }
             } else {
                 lastLocation = location
+                trackCoordinates.append(location.coordinate)
             }
             maxSpeed = max(maxSpeed, location.speed)
-            trackCoordinates.append(location.coordinate)
             if activity == .run, location.verticalAccuracy >= 0, location.verticalAccuracy <= 10 {
                 // Drops under 1 m between fixes are mostly altimeter noise.
                 if let previous = lastAltitude, previous - location.altitude >= 1 { descent += previous - location.altitude }
@@ -301,28 +298,6 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
             let point = TrackPoint(location: location, session: session, motion: motion.latest, gForce: peakG, heartRate: heartRate(), sport: Sport.saved)
             context.insert(point)
             try? context.save()
-        }
-    }
-
-    // MARK: - Motion activity
-
-    /// Motion data is only asked for while recording, or when auto-start needs it to notice driving.
-    func refreshMotionMonitoring() {
-        if isTracking || AutoRecordSettings.autoStart {
-            motion.start()
-        } else {
-            motion.stop()
-        }
-    }
-
-    private func applyMotion(_ sample: MotionSample?) {
-        autoControl.autoStart = AutoRecordSettings.autoStart
-        autoControl.autoStop = AutoRecordSettings.autoStop
-        autoControl.stopAfter = AutoRecordSettings.stopAfter
-        switch autoControl.evaluate(sample, now: Date(), isTracking: isTracking) {
-        case .start: startTracking()
-        case .stop: stopTracking()
-        case .none: break
         }
     }
 }

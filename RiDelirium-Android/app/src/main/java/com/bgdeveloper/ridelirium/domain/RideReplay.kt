@@ -10,7 +10,7 @@ import com.google.android.gms.maps.model.LatLng
  * dropping out) is squeezed to [MAX_GAP] so playback doesn't sit still.
  */
 class RideReplay(private val points: List<TrackPointEntity>) {
-    val coordinates: List<LatLng> = points.map { LatLng(it.lat, it.lon) }
+    val coordinates: List<LatLng> = SessionSummary(points.firstOrNull()?.session ?: 0, points).coordinates
     private val offsets = DoubleArray(points.size)
     val duration: Double
 

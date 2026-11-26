@@ -33,13 +33,7 @@ class SettingsViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), friends.state.value.me)
     fun setSport(sport: Sport) = friends.setSport(sport)
 
-    val autoStart: StateFlow<Boolean> = settings.autoStart
-    val autoStop: StateFlow<Boolean> = settings.autoStop
-    val stopMinutes: StateFlow<Int> = settings.stopMinutes
 
-    fun setAutoStart(value: Boolean) = settings.setAutoStart(value)
-    fun setAutoStop(value: Boolean) = settings.setAutoStop(value)
-    fun setStopMinutes(value: Int) = settings.setStopMinutes(value)
 
     fun setMetric(metric: Boolean) = settings.setMetric(metric)
     fun setName(name: String) = friends.setName(name)

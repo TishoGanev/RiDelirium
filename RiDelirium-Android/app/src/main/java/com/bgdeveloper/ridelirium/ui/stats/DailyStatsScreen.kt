@@ -379,9 +379,14 @@ private fun RouteMap(
     // Remembered: the replay recomposes this ~20 times a second.
     val coordinates = remember(ui.session) { ui.session?.coordinates.orEmpty() }
     val parts = remember(ui.session, ui.analysis) {
-        // Run one point into the next segment so the coloured lines join up.
-        ui.analysis.segments.filter { it.activity != Activity.STILL }.map {
-            it.activity to coordinates.subList(it.startIndex, minOf(it.endIndex + 2, coordinates.size))
+        // Run one point into the next segment so the coloured lines join up. After a stop, also start one
+        // point back, where the held stop position is.
+        val segments = ui.analysis.segments
+        segments.indices.filter { segments[it].activity != Activity.STILL }.map { index ->
+            val segment = segments[index]
+            val afterStop = index > 0 && segments[index - 1].activity == Activity.STILL
+            val start = if (afterStop) maxOf(segment.startIndex - 1, 0) else segment.startIndex
+            segment.activity to coordinates.subList(start, minOf(segment.endIndex + 2, coordinates.size))
         }
     }
     val stillSpots = remember(ui.session, ui.analysis) {

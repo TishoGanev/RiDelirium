@@ -40,10 +40,13 @@ struct DailyStatsScreen: View {
         let analysis = session.analysis
         self.analysis = analysis
         let coordinates = session.coordinates
-        routeParts = analysis.segments.filter { $0.activity != .still }.map { segment in
-            // Run one point into the next segment so the coloured lines join up.
+        routeParts = analysis.segments.enumerated().filter { $0.element.activity != .still }.map { index, segment in
+            // Run one point into the next segment so the coloured lines join up. After a stop, also start
+            // one point back, where the held stop position is.
+            let afterStop = index > 0 && analysis.segments[index - 1].activity == .still
+            let start = afterStop ? max(segment.startIndex - 1, 0) : segment.startIndex
             let end = min(segment.endIndex + 1, coordinates.count - 1)
-            return RoutePart(id: segment.id, activity: segment.activity, coordinates: Array(coordinates[segment.startIndex...end]))
+            return RoutePart(id: segment.id, activity: segment.activity, coordinates: Array(coordinates[start...end]))
         }
         insightFacts = RideInsightFacts(
             analysis: analysis, points: session.points, placeName: placeName,

@@ -32,7 +32,7 @@ final class RideReplay: ObservableObject {
 
     init(points: [TrackPoint]) {
         self.points = points
-        coordinates = points.map(\.coordinate)
+        coordinates = SessionSummary(session: points.first?.session ?? 0, points: points).coordinates
         var offsets: [Double] = []
         var elapsed = 0.0
         for (index, point) in points.enumerated() {

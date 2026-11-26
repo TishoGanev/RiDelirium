@@ -30,6 +30,23 @@ final class ActivityDetectorTests: XCTestCase {
         XCTAssertEqual(analysis.liftVertical, 180, accuracy: 25)
     }
 
+    func testMapHoldsOnePositionWhileStanding() {
+        let run = leg(from: nil, steps: 120, dAlt: -1.5, dLat: 0.00006, speed: 7)
+        // Drift around the stop: back and forth by about a metre.
+        let still = leg(from: run.last, steps: 120, dAlt: 0, dLat: 0, speed: 0.1)
+        for (i, point) in still.enumerated() { point.lat += i % 2 == 0 ? 0.00001 : -0.00001 }
+        let lift = leg(from: still.last, steps: 200, dAlt: 0.9, dLat: -0.00002, speed: 2.5)
+        let points = run + still + lift
+        let segments = ActivityDetector.analyze(points).segments
+        let shown = DistanceRule.mapIndices(points, segments: segments)
+
+        XCTAssertEqual(shown.count, points.count)
+        XCTAssertEqual(shown.last, points.count - 1)
+        let stops = segments.filter { $0.activity == .still }
+        XCTAssertEqual(stops.count, 1)
+        for stop in stops { XCTAssertEqual(Set(shown[stop.startIndex...stop.endIndex]).count, 1) }
+    }
+
     func testStandingStillIsNotARun() {
         let analysis = ActivityDetector.analyze(leg(from: nil, steps: 200, dAlt: 0, dLat: 0, speed: 0))
         XCTAssertTrue(analysis.runs.isEmpty)

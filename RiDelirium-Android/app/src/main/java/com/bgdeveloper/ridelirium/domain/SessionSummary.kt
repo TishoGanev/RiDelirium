@@ -14,7 +14,10 @@ data class SessionSummary(val session: Int, val points: List<TrackPointEntity>) 
 
     val maxSpeed: Double
         get() = if (analysis.segments.isEmpty()) points.maxOfOrNull { it.speed } ?: 0.0 else analysis.movingMaxSpeed
-    val coordinates: List<LatLng> get() = points.map { LatLng(it.lat, it.lon) }
+    /** The route as drawn on maps: one entry per point, with standing noise held at the last real position. */
+    val coordinates: List<LatLng> by lazy {
+        DistanceRule.mapIndices(points, analysis.segments).map { LatLng(points[it].lat, points[it].lon) }
+    }
 
     /**
      * What the rider rode, as stored with the recording. Rides saved before it was stored fall back to

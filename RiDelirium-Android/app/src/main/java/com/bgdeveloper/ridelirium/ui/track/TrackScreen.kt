@@ -149,7 +149,7 @@ fun TrackScreen(viewModel: TrackViewModel = hiltViewModel(), friendsViewModel: F
                 add(Manifest.permission.ACCESS_FINE_LOCATION)
                 add(Manifest.permission.ACCESS_COARSE_LOCATION)
                 if (Build.VERSION.SDK_INT >= 33) add(Manifest.permission.POST_NOTIFICATIONS)
-                // Motion activity (auto start and stop) is hidden below Android 10, where this permission does not exist.
+                // Motion activity (the CSV activity column) is skipped below Android 10, where this permission does not exist.
                 if (MotionMonitor.isSupported) add(Manifest.permission.ACTIVITY_RECOGNITION)
             }.toTypedArray()
         )

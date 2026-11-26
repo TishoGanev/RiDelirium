@@ -4,7 +4,6 @@ import com.bgdeveloper.ridelirium.data.TrackPointEntity
 import com.bgdeveloper.ridelirium.domain.DayMetrics
 import com.bgdeveloper.ridelirium.domain.DistanceRule
 import com.bgdeveloper.ridelirium.domain.FixFilter
-import com.bgdeveloper.ridelirium.domain.MotionAutoControl
 import com.bgdeveloper.ridelirium.domain.MotionKind
 import com.bgdeveloper.ridelirium.domain.MotionSample
 import com.bgdeveloper.ridelirium.domain.PeriodInsights
@@ -148,36 +147,6 @@ class TrackCsvTest {
     @Test fun realMovementIsStillCounted() {
         val points = (0 until 60).map { point(it * 1000L, speed = 5.5, accuracy = 8.0, lat = 42.0 + it * 0.00005) }
         assertEquals(59 * 0.00005 * 111_195, DistanceRule.steps(points).sum(), 20.0)
-    }
-
-    // endregion
-
-    // region motion auto control
-
-    @Test fun autoStopAfterIdleMinutes() {
-        val control = MotionAutoControl(autoStop = true, stopAfterMillis = 180_000)
-        val still = MotionSample(MotionKind.STATIONARY, 2)
-        assertEquals(MotionAutoControl.Action.NONE, control.evaluate(still, base, true))
-        assertEquals(MotionAutoControl.Action.NONE, control.evaluate(still, base + 179_000, true))
-        assertEquals(MotionAutoControl.Action.STOP, control.evaluate(still, base + 180_000, true))
-    }
-
-    @Test fun movingResetsIdleTimerAndSettingsOffDoNothing() {
-        val control = MotionAutoControl(autoStop = true, stopAfterMillis = 180_000)
-        control.evaluate(MotionSample(MotionKind.WALKING, 2), base, true)
-        control.evaluate(MotionSample(MotionKind.AUTOMOTIVE, 2), base + 100_000, true)
-        assertEquals(MotionAutoControl.Action.NONE, control.evaluate(MotionSample(MotionKind.WALKING, 2), base + 250_000, true))
-
-        val off = MotionAutoControl()
-        assertEquals(MotionAutoControl.Action.NONE, off.evaluate(MotionSample(MotionKind.STATIONARY, 2), base + 9_999_000, true))
-        assertEquals(MotionAutoControl.Action.NONE, off.evaluate(MotionSample(MotionKind.AUTOMOTIVE, 2), base, false))
-    }
-
-    @Test fun autoStartNeedsDrivingWithConfidence() {
-        val control = MotionAutoControl(autoStart = true)
-        assertEquals(MotionAutoControl.Action.NONE, control.evaluate(MotionSample(MotionKind.AUTOMOTIVE, 0), base, false))
-        assertEquals(MotionAutoControl.Action.NONE, control.evaluate(MotionSample(MotionKind.WALKING, 2), base, false))
-        assertEquals(MotionAutoControl.Action.START, control.evaluate(MotionSample(MotionKind.AUTOMOTIVE, 1), base, false))
     }
 
     // endregion

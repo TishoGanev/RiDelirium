@@ -17,32 +17,6 @@ class SettingsRepository @Inject constructor(@ApplicationContext context: Contex
     private val _units = MutableStateFlow(Units(prefs.getBoolean(KEY_METRIC, true)))
     val units: StateFlow<Units> = _units.asStateFlow()
 
-    private val _autoStart = MutableStateFlow(prefs.getBoolean(KEY_AUTO_START, false))
-    private val _autoStop = MutableStateFlow(prefs.getBoolean(KEY_AUTO_STOP, false))
-    private val _stopMinutes = MutableStateFlow(prefs.getInt(KEY_STOP_MINUTES, DEFAULT_STOP_MINUTES))
-
-    /** Start recording when driving is detected. Off by default: a lift ride or a walk to the slope looks like walking or standing. */
-    val autoStart: StateFlow<Boolean> = _autoStart.asStateFlow()
-    /** Stop recording after [stopMinutes] of standing or walking. */
-    val autoStop: StateFlow<Boolean> = _autoStop.asStateFlow()
-    val stopMinutes: StateFlow<Int> = _stopMinutes.asStateFlow()
-
-    fun setAutoStart(value: Boolean) {
-        prefs.edit().putBoolean(KEY_AUTO_START, value).apply()
-        _autoStart.value = value
-    }
-
-    fun setAutoStop(value: Boolean) {
-        prefs.edit().putBoolean(KEY_AUTO_STOP, value).apply()
-        _autoStop.value = value
-    }
-
-    fun setStopMinutes(value: Int) {
-        val minutes = value.coerceIn(1, 30)
-        prefs.edit().putInt(KEY_STOP_MINUTES, minutes).apply()
-        _stopMinutes.value = minutes
-    }
-
     private val _range = MutableStateFlow(prefs.getString(KEY_RANGE, null)?.let { runCatching { StatsRange.valueOf(it) }.getOrNull() } ?: StatsRange.ALL)
     /** How far back the Stats list reaches. */
     val statsRange: StateFlow<StatsRange> = _range.asStateFlow()
@@ -59,10 +33,6 @@ class SettingsRepository @Inject constructor(@ApplicationContext context: Contex
 
     private companion object {
         const val KEY_METRIC = "unitsMetric"
-        const val KEY_AUTO_START = "autoStartOnDriving"
-        const val KEY_AUTO_STOP = "autoStopWhenIdle"
-        const val KEY_STOP_MINUTES = "autoStopMinutes"
         const val KEY_RANGE = "statsRange"
-        const val DEFAULT_STOP_MINUTES = 3
     }
 }

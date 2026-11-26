@@ -22,11 +22,7 @@ struct SettingsScreen: View {
     @Binding var path: NavigationPath
     @AppStorage("unitsMetric") private var unitsMetric = true
     @AppStorage(Sport.storageKey) private var sport = Sport.board
-    @AppStorage(AutoRecordSettings.autoStartKey) private var autoStart = false
-    @AppStorage(AutoRecordSettings.autoStopKey) private var autoStop = false
-    @AppStorage(AutoRecordSettings.stopMinutesKey) private var stopMinutes = AutoRecordSettings.defaultStopMinutes
     @EnvironmentObject private var friends: FriendsStore
-    @EnvironmentObject private var tracker: LocationTracker
     @State private var isEditingName = false
     @State private var nameDraft = ""
     @State private var isConfirmingDelete = false
@@ -58,8 +54,6 @@ struct SettingsScreen: View {
                         }
 
                         sportRow
-
-                        autoRecordRow
 
                         Button {
                             path.append(SettingsRoute.about)
@@ -143,7 +137,6 @@ struct SettingsScreen: View {
 
                         VStack(spacing: 0) {
                             sportRow
-                            autoRecordRow
                         }
                         .background(Color.white, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
                         .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
@@ -217,26 +210,6 @@ struct SettingsScreen: View {
         }
         // Friends' tags change as soon as the server has it.
         .onChange(of: sport) { _, newSport in friends.setSport(newSport) }
-    }
-
-    /// Starting and stopping a recording from motion activity. Recorded points are never deleted by it.
-    private var autoRecordRow: some View {
-        VStack(spacing: 14) {
-            Toggle("START WHEN DRIVING", isOn: $autoStart)
-            Toggle("STOP WHEN IDLE", isOn: $autoStop)
-            if autoStop {
-                Stepper("AFTER \(stopMinutes) MIN STANDING OR WALKING", value: $stopMinutes, in: 1...30)
-            }
-        }
-        .font(.sb(18))
-        .foregroundStyle(.sbCharcoal)
-        .tint(.sbRed)
-        .padding(.horizontal, 20)
-        .padding(.vertical, 18)
-        .overlay(alignment: .bottom) {
-            Rectangle().fill(Color.sbDivider).frame(height: 1)
-        }
-        .onChange(of: autoStart) { _, _ in tracker.refreshMotionMonitoring() }
     }
 
     /// App Store 2.5.1: a section of its own that says plainly where the app uses HealthKit.

@@ -82,7 +82,7 @@ class MotionMonitor @Inject constructor(@ApplicationContext private val context:
         /** Android 10: the first version with the ACTIVITY_RECOGNITION runtime permission. */
         const val MIN_SDK = 29
 
-        /** Motion activity (auto start and stop, the activity column in the CSV) needs Android 10 or later. */
+        /** Motion activity (the activity column in the CSV) needs Android 10 or later. */
         val isSupported: Boolean get() = Build.VERSION.SDK_INT >= MIN_SDK
     }
 }

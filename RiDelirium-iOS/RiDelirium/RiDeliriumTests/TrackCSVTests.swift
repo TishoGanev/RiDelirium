@@ -180,32 +180,4 @@ final class TrackCSVTests: XCTestCase {
         }
         XCTAssertEqual(DistanceRule.steps(points).reduce(0, +), 59 * 0.00005 * 111_195, accuracy: 20)
     }
-
-    // MARK: Motion auto control
-
-    func testAutoStopAfterIdleMinutes() {
-        var control = MotionAutoControl(autoStop: true, stopAfter: 180)
-        let still = MotionSample(kind: .stationary, confidence: 2)
-        XCTAssertEqual(control.evaluate(still, now: base, isTracking: true), .none)
-        XCTAssertEqual(control.evaluate(still, now: base.addingTimeInterval(179), isTracking: true), .none)
-        XCTAssertEqual(control.evaluate(still, now: base.addingTimeInterval(180), isTracking: true), .stop)
-    }
-
-    func testMovingResetsIdleTimerAndSettingsOffDoNothing() {
-        var control = MotionAutoControl(autoStop: true, stopAfter: 180)
-        _ = control.evaluate(MotionSample(kind: .walking, confidence: 2), now: base, isTracking: true)
-        _ = control.evaluate(MotionSample(kind: .automotive, confidence: 2), now: base.addingTimeInterval(100), isTracking: true)
-        XCTAssertEqual(control.evaluate(MotionSample(kind: .walking, confidence: 2), now: base.addingTimeInterval(250), isTracking: true), .none)
-
-        var off = MotionAutoControl()
-        XCTAssertEqual(off.evaluate(MotionSample(kind: .stationary, confidence: 2), now: base.addingTimeInterval(9999), isTracking: true), .none)
-        XCTAssertEqual(off.evaluate(MotionSample(kind: .automotive, confidence: 2), now: base, isTracking: false), .none)
-    }
-
-    func testAutoStartNeedsDrivingWithConfidence() {
-        var control = MotionAutoControl(autoStart: true)
-        XCTAssertEqual(control.evaluate(MotionSample(kind: .automotive, confidence: 0), now: base, isTracking: false), .none)
-        XCTAssertEqual(control.evaluate(MotionSample(kind: .walking, confidence: 2), now: base, isTracking: false), .none)
-        XCTAssertEqual(control.evaluate(MotionSample(kind: .automotive, confidence: 1), now: base, isTracking: false), .start)
-    }
 }
