@@ -328,7 +328,7 @@ struct SettingsScreen: View {
             Button("Cancel", role: .cancel) {}
             Button("Save") { friends.setName(nameDraft) }
         } message: {
-            Text("Riders who join your code see this name. It isn't stored anywhere but on your phone.")
+            Text("Riders who join your code see this name. It is stored on our Ride Together server until you delete your Ride Together data.")
         }
     }
 }

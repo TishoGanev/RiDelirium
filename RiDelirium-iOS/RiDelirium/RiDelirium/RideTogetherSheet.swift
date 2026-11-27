@@ -955,7 +955,7 @@ struct RideTogetherSheet: View {
                 .cssLineHeight(1, fontSize: 32)
                 .accessibilityAddTraits(.isHeader)
 
-            Text("This is what riders see when they join your code. It isn't stored anywhere but on your phone.")
+            Text("This is what riders see when they join your code. It is stored on our Ride Together server, and you can delete it in Settings.")
                 .font(.sb(17, .semibold))
                 .foregroundStyle(.sbSecondary)
                 .fixedSize(horizontal: false, vertical: true)

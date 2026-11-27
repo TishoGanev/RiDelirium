@@ -340,7 +340,7 @@ private fun NameDialog(initial: String, onDismiss: () -> Unit, onSave: (String) 
         title = { Text("Your name") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("Riders who join your code see this name. It isn't stored anywhere but on your phone.")
+                Text("Riders who join your code see this name. It is stored on our Ride Together server until you delete your Ride Together data.")
                 OutlinedTextField(
                     draft, { draft = it.take(30) }, singleLine = true, label = { Text("Name") },
                     keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),

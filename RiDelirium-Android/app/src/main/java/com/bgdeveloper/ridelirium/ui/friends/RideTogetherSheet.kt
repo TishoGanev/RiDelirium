@@ -741,7 +741,7 @@ private fun NameStep(onSave: (String) -> Unit) {
     Column(Modifier.padding(horizontal = 20.dp).padding(top = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("YOUR NAME", style = sb(32, FontWeight.ExtraBold), color = Sb.Charcoal)
         Text(
-            "This is what riders see when they join your code. It isn't stored anywhere but on your phone.",
+            "This is what riders see when they join your code. It is stored on our Ride Together server, and you can delete it in Settings.",
             style = sb(17, FontWeight.SemiBold), color = Sb.Secondary,
         )
         Field(
