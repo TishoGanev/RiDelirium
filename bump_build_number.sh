@@ -5,6 +5,8 @@
 # The number lives in BUILD_NUMBER at the repo root; commit it with the release. iOS stamps it into
 # CFBundleVersion at build time, Android uses it as versionCode, and RiDelirium-Server/deploy.sh publishes it
 # at GET /v1/version.
+# It goes up at least once on every day something changes: .githooks/pre-commit does it on the first commit of
+# the day (git config core.hooksPath .githooks).
 set -eu
 cd "$(dirname "$0")"
 

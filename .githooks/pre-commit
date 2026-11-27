@@ -1,0 +1,21 @@
+#!/bin/sh
+# The first commit of a day raises the build number shared by all platforms (BUILD_NUMBER), so it goes up
+# at least once on every day something changes.
+# Turn on once per clone:  git config core.hooksPath .githooks
+set -eu
+cd "$(git rev-parse --show-toplevel)"
+
+# This commit already carries a new number.
+git diff --cached --quiet -- BUILD_NUMBER || exit 0
+
+# Raised by hand but not staged: take it along.
+if ! git diff --quiet -- BUILD_NUMBER; then
+    git add BUILD_NUMBER
+    exit 0
+fi
+
+# Already raised in a commit today.
+[ "$(git log -1 --format=%cd --date=format-local:%F -- BUILD_NUMBER)" = "$(date +%F)" ] && exit 0
+
+./bump_build_number.sh
+git add BUILD_NUMBER
