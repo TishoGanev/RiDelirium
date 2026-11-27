@@ -1,0 +1,120 @@
+RIDELIRIUM: WHAT IT DOES TODAY
+==============================
+
+Every feature the apps, watch, server and website have now. Add a line here whenever new
+functionality ships, change it when behaviour changes, and delete it when a feature is
+removed. Planned work is in NEXT_VERSION.txt, platform gaps in IOS_ANDROID_DIFF.txt.
+
+Last updated: 2026-11-27, from the code on release/2.0.1 (may be ahead of the store builds).
+Not checked on a device.
+
+Tags:  [both] iPhone and Android   [iOS] iPhone only   [Android] Android only
+
+
+RECORDING A RIDE
+----------------
+[both]     Start, pause, resume and stop by hand.
+[both]     Keeps recording with the screen off or the app in the background.
+[both]     GPS state before the start: searching, accuracy, weak signal.
+[both]     Live speed, distance, max speed, altitude, time, and riding / lift / stopped.
+[both]     Live G-force and highest G (phones with an accelerometer).
+[both]     Standing still adds no distance and no map points; every accepted fix is still saved.
+           Fixes less accurate than 20 m are not saved.
+[both]     Recording card in three sizes (full, compact, only pause + stop), remembered.
+[both]     Motion activity saved with each point (Android 10 or later).
+[iOS]      Live heart rate beside the speed (needs Apple Watch).
+[iOS]      Live Activity and Dynamic Island: the ride on the lock screen, "wait for me" with
+           OK, waiting, ride complete card.
+[Android]  Ongoing notification while recording.
+[Android]  A ride survives Android killing the app and picks up again.
+[Android]  Asks to lift battery restrictions so recording is not stopped.
+
+MAP
+---
+[both]     Full-screen map with your position and the route so far.
+[both]     Follow Me and re-centre.
+[both]     Show everyone: zooms to you and your crew.
+[both]     Rider tags with sport, speed, stopped or last seen; dots when zoomed far out.
+[both]     Tap a rider: distance to them and WAIT.
+
+RIDE LIST AND SEASON
+--------------------
+[both]     All rides with date, place name, distance and top speed.
+[both]     Totals: distance, riding days, top speed.
+[both]     Period filter: today, 3 days, 7 days, 1 month, season, all.
+[both]     Swipe to delete a ride.
+
+ONE RIDE
+--------
+[both]     Route map with runs, lifts and stops in different colours.
+[both]     Runs, lifts and stops detected automatically from altitude and speed.
+[both]     Distance, max speed, run and lift counts, downhill distance, descent, time riding,
+           on lifts and stopped.
+[both]     Segment list: each run, lift and stop.
+[both]     Replay on the map at 1x, 2x, 4x, 8x, 16x, with pause, restart and seek.
+[both]     Share card (4:5 image with route, distance, top speed, place and date) to any app.
+[both]     CSV export: time, position, altitude, speed, accuracy, course, activity, G-force,
+           heart rate (the heart rate column is empty on Android).
+[iOS]      Apple Health line: distance for the sport and average heart rate.
+
+INSIGHTS
+--------
+[both]     The numbers in plain words, for one ride or for progress over a period (2+ rides).
+[both]     Written summary and tip by on-device AI, where the phone has it (iPhone: Apple
+           Intelligence; Android: Gemini Nano). Ride data stays on the phone.
+[both]     Coaching matched to the sport, also when the sport changes mid-ride.
+[both]     Ski and snowboard extras (turns, impacts) and hike extras (pace, climb).
+[iOS]      Heart rate and heart rate recovery in insights (needs Apple Watch).
+
+RIDE TOGETHER (CREWS)
+---------------------
+[both]     No account: just a name.
+[both]     Create, rename (owner) and leave crews. Up to 3 riders per crew, 10 crews per rider.
+[both]     Switch which crew the map shows.
+[both]     Join by QR scan, invite link (ridelirium.com/join/CODE) or typed code, with a
+           preview before joining.
+[both]     Invite by QR code, link, or from riders of the last 30 days.
+[both]     Choose until when you share your location (2 h, 4 h, tonight or an exact time);
+           change it later.
+[both]     Reminder 10 minutes before your time ends, with +1 HOUR.
+[both]     Live positions of crew mates on the map, iPhone and Android mixed.
+[both]     "Wait for me": send from the map or crew list, answer "OK, waiting" from the
+           notification, sender is told.
+[both]     Meet point: long press the map, pick lift, hut, parking or here and a time; the
+           crew is notified.
+[both]     Notifications: joined, left, invite, wait for me, answer, meet point.
+[both]     Delete my Ride Together data (name and crews) from the app.
+
+SETTINGS AND GENERAL
+--------------------
+[both]     Sport: ski, snowboard, bike, hike. Shown to the crew.
+[both]     Metric or imperial.
+[both]     Your name as friends see it.
+[both]     Landscape layouts for Track, Stats and the ride page.
+[both]     About screen and links to Instagram and Facebook.
+[both]     Rides are stored on the phone.
+[iOS]      Apple Health access.
+[Android]  Notification status and background / battery settings shortcuts.
+
+APPLE WATCH
+-----------
+           Start and stop the phone's recording, with an end-or-resume confirmation.
+           Heart rate, distance and vertical.
+           Records a workout of the chosen sport in Apple Health.
+           Sends heart rate to the phone (ride data and Live Activity).
+           Shows "wait for me" alerts with OK, waiting.
+
+SERVER AND WEBSITE
+------------------
+           Ride Together API at ridersapi.sportco.net with push through Apple and Google.
+           Positions are removed 10 minutes after the last update; riders unseen for 30 days
+           are deleted.
+           Invite page with store buttons; invite links open the apps.
+           Website ridelirium.app: features, support and FAQ, privacy, delete my data.
+
+
+BUILT BUT NOT SHOWN TO RIDERS
+-----------------------------
+[both]     Questions to the AI about a ride (switched off: answers not reliable enough).
+           Apple Watch map, friends list and stats screens (in the code, not reachable).
+           Voice room token on the server (no voice in the apps).
