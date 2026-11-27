@@ -107,6 +107,16 @@ class TrackingEngine @Inject constructor(
     /** Safe to call repeatedly; call again once permission is granted. */
     fun startLocationUpdates() = restartUpdates()
 
+    /**
+     * The permissions asked as a ride starts have been answered: motion can be listened to now, and the ride
+     * notification is posted again so it shows if notifications were just allowed.
+     */
+    fun onRidePermissionsResult() {
+        if (!_state.value.isTracking) return
+        refreshMotionMonitoring()
+        startService()
+    }
+
     fun start() {
         if (_state.value.isTracking) return
         scope.launch {

@@ -1,5 +1,20 @@
 package com.bgdeveloper.ridelirium.ui.friends
 
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.LocalWindowInfo
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.OffsetMapping
+import androidx.compose.ui.text.input.TransformedText
+import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.AnnotatedString
+import com.bgdeveloper.ridelirium.ui.successHaptic
+import kotlinx.coroutines.flow.first
 import androidx.compose.material3.rememberModalBottomSheetState
 import com.bgdeveloper.ridelirium.friends.timeLeftLabel
 import com.bgdeveloper.ridelirium.friends.Stay
@@ -9,8 +24,6 @@ import java.time.ZonedDateTime
 import java.time.ZoneId
 import com.bgdeveloper.ridelirium.friends.CrewPreview
 import com.bgdeveloper.ridelirium.friends.Crew
-import android.os.Build
-import android.view.HapticFeedbackConstants
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.platform.LocalView
 import android.content.Intent
@@ -131,9 +144,7 @@ fun RideTogetherSheet(onDismiss: () -> Unit, viewModel: FriendsViewModel = hiltV
     // A friend just joined: a small confirming tap, like the success haptic on iOS.
     LaunchedEffect(ui.joinBanner) {
         if (ui.joinBanner != null) {
-            view.performHapticFeedback(
-                if (Build.VERSION.SDK_INT >= 30) HapticFeedbackConstants.CONFIRM else HapticFeedbackConstants.VIRTUAL_KEY,
-            )
+            view.successHaptic()
         }
     }
     // A crew that went away (left, or its time ran out) can't stay open.
@@ -162,6 +173,7 @@ fun RideTogetherSheet(onDismiss: () -> Unit, viewModel: FriendsViewModel = hiltV
                         onWait = { friend ->
                             waitSent[friend.id] = System.currentTimeMillis()
                             now = System.currentTimeMillis()
+                            view.successHaptic()
                             viewModel.askToWait(friend.id) { ok ->
                                 if (!ok) {
                                     waitSent.remove(friend.id)
@@ -173,7 +185,7 @@ fun RideTogetherSheet(onDismiss: () -> Unit, viewModel: FriendsViewModel = hiltV
                         onSelect = { viewModel.selectCrew(crew.id); onDismiss() },
                         onBack = { screen = Screen.Home },
                         onCode = { screen = Screen.InviteCode(crew.id) },
-                        onShare = { shareInvite(context, crew, onDismiss) },
+                        onShare = { shareInvite(context, crew) },
                         onChangeTime = { changeTime = crew },
                         onLeave = { confirmLeave = crew },
                         onRename = { rename = crew },
@@ -183,7 +195,7 @@ fun RideTogetherSheet(onDismiss: () -> Unit, viewModel: FriendsViewModel = hiltV
                     val crew = crewOf(current.crewId)!!
                     Column(Modifier.padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
                         BackTitle(crew.name.uppercase(), onBack = { screen = Screen.Detail(crew.id) })
-                        ShareTab(crew.invite.url, crew.code, ui.joinBanner, failed = false, onRetry = {}, onShare = { shareInvite(context, crew, onDismiss) })
+                        ShareTab(crew.invite.url, crew.code, ui.joinBanner, failed = false, onRetry = {}, onShare = { shareInvite(context, crew) })
                     }
                 }
                 current is Screen.NewCrew -> NewCrewStep(
@@ -262,11 +274,10 @@ fun RideTogetherSheet(onDismiss: () -> Unit, viewModel: FriendsViewModel = hiltV
     }
 }
 
-private fun shareInvite(context: android.content.Context, crew: Crew, onSent: () -> Unit) {
+// The sheet stays open: Android does not say whether the invite was sent or the chooser was just closed.
+private fun shareInvite(context: android.content.Context, crew: Crew) {
     val text = "Ride with me on RiDelirium. Tap the link to join ${crew.name}, or enter the code ${formatCode(crew.code)}.\n${crew.invite.url}"
     context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, text), null))
-    // The invite is on its way to Mail, Viber, Messages...; this screen has done its job.
-    onSent()
 }
 
 @Composable
@@ -406,7 +417,7 @@ private fun CrewDetail(
             Box(Modifier.clip(RoundedCornerShape(28.dp)).border(1.5.dp, Color(0xFFEAEAEA), RoundedCornerShape(28.dp)).background(Color.White).padding(20.dp)) {
                 Image(qr.asImageBitmap(), contentDescription = "Invite QR code", Modifier.size(210.dp))
             }
-            Text(formatCode(crew.code), style = sb(36, FontWeight.ExtraBold, tracking = 0.1f, tabular = true), color = Sb.Charcoal)
+            SelectionContainer { Text(formatCode(crew.code), style = sb(36, FontWeight.ExtraBold, tracking = 0.1f, tabular = true), color = Sb.Charcoal) }
             Text(
                 "Let friends scan this or open your invite link, or add someone you rode with.",
                 style = sb(15, FontWeight.SemiBold), color = Sb.Secondary, textAlign = androidx.compose.ui.text.style.TextAlign.Center,
@@ -571,7 +582,7 @@ private fun ShareTab(url: String?, code: String?, joinBanner: String?, failed: B
         Box(Modifier.clip(RoundedCornerShape(28.dp)).border(1.5.dp, Color(0xFFEAEAEA), RoundedCornerShape(28.dp)).background(Color.White).padding(22.dp)) {
             Image(qr.asImageBitmap(), contentDescription = "Invite QR code", Modifier.size(228.dp))
         }
-        Text(formatCode(code), style = sb(38, FontWeight.ExtraBold, tracking = 0.1f, tabular = true), color = Sb.Charcoal)
+        SelectionContainer { Text(formatCode(code), style = sb(38, FontWeight.ExtraBold, tracking = 0.1f, tabular = true), color = Sb.Charcoal) }
         Text(
             "Friends scan with their camera or in RiDelirium, or open the invite link you send them. They appear in the crew as soon as they join.",
             style = sb(16, FontWeight.SemiBold), color = Sb.Secondary, textAlign = androidx.compose.ui.text.style.TextAlign.Center,
@@ -605,11 +616,22 @@ private fun JoinTab(isJoining: Boolean, onCode: (String) -> Unit) {
             .addOnSuccessListener { barcode -> barcode.rawValue?.let(onCode) }
     }
     Text("ENTER CODE", style = sb(13, tracking = 0.08f), color = Sb.Secondary)
+    val join = {
+        if (typed.isNotBlank() && !isJoining) {
+            onCode(autoDash(typed))
+            typed = ""
+        }
+    }
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-        Field(typed, { typed = autoDash(it) }, "XXXX-XXXX", Modifier.weight(1f))
+        Field(
+            typed, { typed = codeChars(it) }, "XXXX-XXXX", Modifier.weight(1f),
+            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters, autoCorrectEnabled = false, imeAction = ImeAction.Go),
+            keyboardActions = KeyboardActions(onGo = { join() }),
+            visualTransformation = CodeDash,
+        )
         Box(
             Modifier.height(56.dp).clip(RoundedCornerShape(20.dp)).background(if (typed.isBlank() || isJoining) Sb.Secondary else Sb.Red)
-                .clickable(enabled = typed.isNotBlank() && !isJoining) { onCode(typed); typed = "" }.padding(horizontal = 26.dp),
+                .clickable(enabled = typed.isNotBlank() && !isJoining) { join() }.padding(horizontal = 26.dp),
             contentAlignment = Alignment.Center,
         ) { Text("JOIN", style = sb(20), color = Color.White) }
     }
@@ -666,10 +688,27 @@ private fun JoinedScreen(crew: Crew, onDone: () -> Unit) {
 // endregion
 
 
-/** "w858b7ba" -> "W858-B7BA": letters and digits only, a dash after the fourth, eight at most. */
+/** What the code field holds: letters and digits only, in capitals, eight at most. */
+private fun codeChars(text: String) = text.uppercase().filter { it.isLetterOrDigit() }.take(8)
+
+/** "w858b7ba" -> "W858-B7BA": [codeChars] with a dash after the fourth. */
 private fun autoDash(text: String): String {
-    val chars = text.uppercase().filter { it.isLetterOrDigit() }.take(8)
+    val chars = codeChars(text)
     return if (chars.length > 4) "${chars.take(4)}-${chars.drop(4)}" else chars
+}
+
+/**
+ * Draws the dash without putting it in the typed text. Inserting it there left the cursor one place back, so the
+ * characters typed after it landed in the wrong order.
+ */
+private val CodeDash = VisualTransformation { typed ->
+    TransformedText(
+        AnnotatedString(autoDash(typed.text)),
+        object : OffsetMapping {
+            override fun originalToTransformed(offset: Int) = if (offset > 4) offset + 1 else offset
+            override fun transformedToOriginal(offset: Int) = if (offset > 4) offset - 1 else offset
+        },
+    )
 }
 
 // endregion
@@ -691,14 +730,26 @@ private fun OfflineStep(onRetry: () -> Unit) {
 @Composable
 private fun NameStep(onSave: (String) -> Unit) {
     var name by remember { mutableStateOf("") }
+    val focus = remember { FocusRequester() }
+    // The keyboard only opens once the sheet's own window has focus.
+    val window = LocalWindowInfo.current
+    LaunchedEffect(window) {
+        snapshotFlow { window.isWindowFocused }.first { it }
+        focus.requestFocus()
+    }
+    val save = { if (name.isNotBlank()) onSave(name) }
     Column(Modifier.padding(horizontal = 20.dp).padding(top = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("YOUR NAME", style = sb(32, FontWeight.ExtraBold), color = Sb.Charcoal)
         Text(
             "This is what riders see when they join your code. It isn't stored anywhere but on your phone.",
             style = sb(17, FontWeight.SemiBold), color = Sb.Secondary,
         )
-        Field(name, { name = it.take(30) }, "Your name", Modifier.fillMaxWidth())
-        BigButton("CONTINUE", if (name.isBlank()) Sb.Secondary else Sb.Red, Color.White) { if (name.isNotBlank()) onSave(name) }
+        Field(
+            name, { name = it.take(30) }, "Your name", Modifier.fillMaxWidth().focusRequester(focus),
+            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words, autoCorrectEnabled = false, imeAction = ImeAction.Done),
+            keyboardActions = KeyboardActions(onDone = { save() }),
+        )
+        BigButton("CONTINUE", if (name.isBlank()) Sb.Secondary else Sb.Red, Color.White, save)
     }
 }
 

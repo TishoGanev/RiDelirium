@@ -1,5 +1,11 @@
 package com.bgdeveloper.ridelirium.ui.track
 
+import android.content.pm.PackageManager
+import androidx.core.content.ContextCompat
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.semantics.selected
+import com.bgdeveloper.ridelirium.ui.successHaptic
 import android.Manifest
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -143,16 +149,28 @@ fun TrackScreen(viewModel: TrackViewModel = hiltViewModel(), friendsViewModel: F
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
         viewModel.onPermissionResult()
     }
+    // Asked as they are needed, like iPhone: location on opening Track, notifications once the rider has a name
+    // (crew alerts), motion on the first ride (below, in `start`).
+    val hasName = friendsUi.me != null
+    var openedWithName by remember { mutableStateOf(hasName) }
     LaunchedEffect(Unit) {
         permissionLauncher.launch(
             buildList {
                 add(Manifest.permission.ACCESS_FINE_LOCATION)
                 add(Manifest.permission.ACCESS_COARSE_LOCATION)
-                if (Build.VERSION.SDK_INT >= 33) add(Manifest.permission.POST_NOTIFICATIONS)
-                // Motion activity (the CSV activity column) is skipped below Android 10, where this permission does not exist.
-                if (MotionMonitor.isSupported) add(Manifest.permission.ACTIVITY_RECOGNITION)
+                if (openedWithName && Build.VERSION.SDK_INT >= 33) add(Manifest.permission.POST_NOTIFICATIONS)
             }.toTypedArray()
         )
+    }
+    LaunchedEffect(hasName) {
+        if (hasName && !openedWithName && Build.VERSION.SDK_INT >= 33) {
+            permissionLauncher.launch(arrayOf(Manifest.permission.POST_NOTIFICATIONS))
+        }
+    }
+    // Motion fills the CSV activity column (Android 10 or later). Notifications are asked here too, since the
+    // recording notification needs them and the rider may never join a crew.
+    val ridePermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
+        viewModel.onRidePermissionsResult()
     }
 
     val camera = rememberCameraPositionState {
@@ -169,19 +187,31 @@ fun TrackScreen(viewModel: TrackViewModel = hiltViewModel(), friendsViewModel: F
             camera.animate(CameraUpdateFactory.newLatLngZoom(here, maxOf(camera.position.zoom, 16f)), 450)
         }
     }
+    // The show-everyone button stays charcoal until the map is moved some other way.
+    var showingEveryone by rememberSaveable { mutableStateOf(false) }
+    val leaveOverview = {
+        showingEveryone = false
+        viewModel.stopFollowing()
+    }
     // A gesture means the user took over, so follow never resumes by itself.
     LaunchedEffect(camera.cameraMoveStartedReason) {
-        if (camera.cameraMoveStartedReason == CameraMoveStartedReason.GESTURE) viewModel.stopFollowing()
+        if (camera.cameraMoveStartedReason == CameraMoveStartedReason.GESTURE) leaveOverview()
     }
 
     val recenter: () -> Unit = {
+        showingEveryone = false
         here?.let { camera.move(CameraUpdateFactory.newLatLng(it)) }
+    }
+    val startFollowing: () -> Unit = {
+        showingEveryone = false
+        viewModel.startFollowing()
     }
     // Fits you and every friend who is sharing a position; the map's padding keeps them clear of the card below.
     val showEveryone: () -> Unit = {
         val points = friendsUi.onMap.map { LatLng(it.latitude!!, it.longitude!!) } + listOfNotNull(here)
         if (points.isNotEmpty()) {
             viewModel.stopFollowing()
+            showingEveryone = true
             val minLat = points.minOf { it.latitude }
             val maxLat = points.maxOf { it.latitude }
             val minLon = points.minOf { it.longitude }
@@ -210,7 +240,7 @@ fun TrackScreen(viewModel: TrackViewModel = hiltViewModel(), friendsViewModel: F
         val target = friendsUi.friends.firstOrNull { it.id == id }
         if (target?.hasPosition == true) {
             selectedId = id
-            viewModel.stopFollowing()
+            leaveOverview()
             camera.animate(CameraUpdateFactory.newLatLng(LatLng(target.latitude!!, target.longitude!!)), 450)
         }
         friendsViewModel.clearFocus()
@@ -221,6 +251,11 @@ fun TrackScreen(viewModel: TrackViewModel = hiltViewModel(), friendsViewModel: F
     // Many phones stop background apps to save battery, ride or not. Ask once, the first time a ride starts.
     val start = {
         viewModel.start()
+        val missing = buildList {
+            if (MotionMonitor.isSupported) add(Manifest.permission.ACTIVITY_RECOGNITION)
+            if (Build.VERSION.SDK_INT >= 33) add(Manifest.permission.POST_NOTIFICATIONS)
+        }.filter { ContextCompat.checkSelfPermission(context, it) != PackageManager.PERMISSION_GRANTED }
+        if (missing.isNotEmpty()) ridePermissionLauncher.launch(missing.toTypedArray())
         val power = context.getSystemService(android.os.PowerManager::class.java)
         val prefs = context.getSharedPreferences("tracking", android.content.Context.MODE_PRIVATE)
         if (!power.isIgnoringBatteryOptimizations(context.packageName) && !prefs.getBoolean("batteryAsked", false)) {
@@ -304,7 +339,7 @@ fun TrackScreen(viewModel: TrackViewModel = hiltViewModel(), friendsViewModel: F
                         state = state, anchor = if (compactMarkers) Offset(0.5f, 0.5f) else Offset(0.5f, 1f), zIndex = 1f,
                         onClick = {
                             selectedId = friend.id
-                            viewModel.stopFollowing()
+                            leaveOverview()
                             scope.launch { camera.animate(CameraUpdateFactory.newLatLng(position), 450) }
                             true
                         },
@@ -344,7 +379,7 @@ fun TrackScreen(viewModel: TrackViewModel = hiltViewModel(), friendsViewModel: F
                         MeetBanner(
                             meet, meters?.let { shortDistance(ui.units, it) }, setByMe = meet.byId == friendsUi.me?.id, now,
                             onTap = {
-                                viewModel.stopFollowing()
+                                leaveOverview()
                                 scope.launch { camera.animate(CameraUpdateFactory.newLatLng(spot), 450) }
                             },
                             onHide = { hiddenMeetAt = meet.atMs },
@@ -352,8 +387,8 @@ fun TrackScreen(viewModel: TrackViewModel = hiltViewModel(), friendsViewModel: F
                         )
                     }
                     Spacer(Modifier.weight(1f))
-                    if (friendsUi.onMap.isNotEmpty()) ShowEveryoneButton(showEveryone)
-                    MapButton(ui, onRecenter = recenter, onFollow = viewModel::startFollowing, onUnfollow = viewModel::stopFollowing)
+                    if (friendsUi.onMap.isNotEmpty()) ShowEveryoneButton(showingEveryone, showEveryone)
+                    MapButton(ui, onRecenter = recenter, onFollow = startFollowing, onUnfollow = viewModel::stopFollowing)
                 }
                 Spacer(Modifier.weight(1f))
                 val shown = selected
@@ -399,7 +434,7 @@ fun TrackScreen(viewModel: TrackViewModel = hiltViewModel(), friendsViewModel: F
                 MeetBanner(
                     meet, meters?.let { shortDistance(ui.units, it) }, setByMe = meet.byId == friendsUi.me?.id, now,
                     onTap = {
-                        viewModel.stopFollowing()
+                        leaveOverview()
                         scope.launch { camera.animate(CameraUpdateFactory.newLatLng(spot), 450) }
                     },
                     onHide = { hiddenMeetAt = meet.atMs },
@@ -412,8 +447,8 @@ fun TrackScreen(viewModel: TrackViewModel = hiltViewModel(), friendsViewModel: F
                 horizontalAlignment = Alignment.End,
             ) {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp), horizontalAlignment = Alignment.End) {
-                    if (friendsUi.onMap.isNotEmpty()) ShowEveryoneButton(showEveryone)
-                    MapButton(ui, onRecenter = recenter, onFollow = viewModel::startFollowing, onUnfollow = viewModel::stopFollowing)
+                    if (friendsUi.onMap.isNotEmpty()) ShowEveryoneButton(showingEveryone, showEveryone)
+                    MapButton(ui, onRecenter = recenter, onFollow = startFollowing, onUnfollow = viewModel::stopFollowing)
                 }
                 // Keeps the last rider while the card slides out, like iOS (move from the bottom, fade).
                 var lastSelected by remember { mutableStateOf<Friend?>(null) }
@@ -558,6 +593,7 @@ private fun RideTogetherPill(now: Long, viewModel: FriendsViewModel = hiltViewMo
 @Composable
 private fun SelectedFriendCard(friend: Friend, distance: String?, sent: Boolean, onWait: () -> Unit, onClose: () -> Unit) {
     val shape = RoundedCornerShape(24.dp)
+    val view = LocalView.current
     Row(
         Modifier.fillMaxWidth().shadow(14.dp, shape, ambientColor = Color.Black.copy(0.35f), spotColor = Color.Black.copy(0.35f))
             .clip(shape).background(Color.White).padding(top = 10.dp, bottom = 10.dp, start = 12.dp, end = 10.dp),
@@ -575,7 +611,10 @@ private fun SelectedFriendCard(friend: Friend, distance: String?, sent: Boolean,
             Modifier.height(44.dp).clip(CircleShape)
                 .background(if (sent) Color.White else Sb.Red)
                 .then(if (sent) Modifier.border(1.5.dp, Sb.Red, CircleShape) else Modifier)
-                .clickable(enabled = !sent, onClick = onWait)
+                .clickable(enabled = !sent) {
+                    onWait()
+                    view.successHaptic()
+                }
                 .semantics { contentDescription = if (sent) "Wait request sent" else "Ask ${friend.displayName} to wait" }
                 .padding(horizontal = 18.dp),
             contentAlignment = Alignment.Center,
@@ -589,14 +628,17 @@ private fun SelectedFriendCard(friend: Friend, distance: String?, sent: Boolean,
 }
 
 @Composable
-private fun ShowEveryoneButton(onClick: () -> Unit) {
+private fun ShowEveryoneButton(active: Boolean, onClick: () -> Unit) {
     Box(
-        Modifier.size(48.dp).chipShadow(CircleShape).clip(CircleShape).background(Color.White)
-            .semantics { contentDescription = "Show everyone on the map" }
+        Modifier.size(48.dp).chipShadow(CircleShape).clip(CircleShape).background(if (active) Sb.Charcoal else Color.White)
+            .semantics {
+                contentDescription = "Show everyone on the map"
+                selected = active
+            }
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(painterResource(R.drawable.ic_people), contentDescription = null, tint = Sb.Charcoal, modifier = Modifier.size(22.dp))
+        Icon(painterResource(R.drawable.ic_people), contentDescription = null, tint = if (active) Color.White else Sb.Charcoal, modifier = Modifier.size(22.dp))
     }
 }
 

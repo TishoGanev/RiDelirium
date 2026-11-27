@@ -1,5 +1,7 @@
 package com.bgdeveloper.ridelirium.ui.track
 
+import androidx.compose.ui.platform.LocalView
+import com.bgdeveloper.ridelirium.ui.successHaptic
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -95,6 +97,7 @@ fun MeetPointSheet(crewName: String, onDismiss: () -> Unit, onSend: (MeetKind, I
     var minutes by remember { mutableIntStateOf(10) }
     var sending by remember { mutableStateOf(false) }
     var failed by remember { mutableStateOf(false) }
+    val view = LocalView.current
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), containerColor = Color.White) {
         Column(Modifier.padding(horizontal = 20.dp).padding(bottom = 28.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Text("MEET POINT", style = sb(28, FontWeight.ExtraBold), color = Sb.Charcoal)
@@ -110,7 +113,11 @@ fun MeetPointSheet(crewName: String, onDismiss: () -> Unit, onSend: (MeetKind, I
                     .clickable(enabled = !sending) {
                         sending = true
                         failed = false
-                        onSend(kind, minutes) { ok -> sending = false; failed = !ok }
+                        onSend(kind, minutes) { ok ->
+                            sending = false
+                            failed = !ok
+                            if (ok) view.successHaptic()
+                        }
                     },
                 contentAlignment = Alignment.Center,
             ) { Text(if (sending) "SENDING…" else "SEND TO ${crewName.uppercase()}", style = sb(19), color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 16.dp)) }

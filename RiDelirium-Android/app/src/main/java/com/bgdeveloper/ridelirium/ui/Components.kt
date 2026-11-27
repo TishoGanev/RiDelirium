@@ -1,5 +1,8 @@
 package com.bgdeveloper.ridelirium.ui
 
+import android.os.Build
+import android.view.HapticFeedbackConstants
+import android.view.View
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -16,6 +19,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
@@ -28,6 +33,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -66,6 +72,11 @@ fun Chevron(modifier: Modifier = Modifier, color: Color = com.bgdeveloper.rideli
     }
 }
 
+/** A short confirming tap, like the success haptic on iPhone. */
+fun View.successHaptic() {
+    performHapticFeedback(if (Build.VERSION.SDK_INT >= 30) HapticFeedbackConstants.CONFIRM else HapticFeedbackConstants.VIRTUAL_KEY)
+}
+
 @Composable
 fun statusBarTop(): Dp = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
 
@@ -81,9 +92,14 @@ fun BigButton(title: String, background: Color, foreground: Color, onClick: () -
 }
 
 @Composable
-fun Field(value: String, onChange: (String) -> Unit, placeholder: String, modifier: Modifier) {
+fun Field(
+    value: String, onChange: (String) -> Unit, placeholder: String, modifier: Modifier,
+    keyboardOptions: KeyboardOptions = KeyboardOptions.Default, keyboardActions: KeyboardActions = KeyboardActions.Default,
+    visualTransformation: VisualTransformation = VisualTransformation.None,
+) {
     TextField(
         value = value, onValueChange = onChange, singleLine = true, modifier = modifier,
+        keyboardOptions = keyboardOptions, keyboardActions = keyboardActions, visualTransformation = visualTransformation,
         placeholder = { Text(placeholder, style = sb(17), color = Sb.Secondary) },
         textStyle = sb(18),
         shape = RoundedCornerShape(16.dp),

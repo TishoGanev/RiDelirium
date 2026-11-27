@@ -33,6 +33,7 @@ class TrackViewModel @Inject constructor(
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), TrackUiState())
 
     fun onPermissionResult() = engine.startLocationUpdates()
+    fun onRidePermissionsResult() = engine.onRidePermissionsResult()
 
     fun start() {
         engine.start()
