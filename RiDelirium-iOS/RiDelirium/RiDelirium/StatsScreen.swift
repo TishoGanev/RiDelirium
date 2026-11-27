@@ -17,8 +17,13 @@ struct SessionSummary: Identifiable {
     var endDate: Date { points.last?.timestamp ?? Date() }
     var maxSpeed: Double { analysis.segments.isEmpty ? (points.map(\.speed).max() ?? 0) : analysis.movingMaxSpeed }
     /// The route as drawn on maps: one entry per point, with standing noise held at the last real position.
+    /// Cached with the analysis: maps and sketches ask for it on every redraw.
     var coordinates: [CLLocationCoordinate2D] {
-        DistanceRule.mapIndices(points, segments: analysis.segments).map { points[$0].coordinate }
+        let box = cached
+        if let route = box.route { return route }
+        let route = DistanceRule.mapIndices(points, segments: box.analysis.segments).map { points[$0].coordinate }
+        box.route = route
+        return route
     }
 
     /// What the rider rode, as stored with the recording. Rides saved before it was stored fall back to the
@@ -31,12 +36,14 @@ struct SessionSummary: Identifiable {
     var placeKey: String { "\(session)-\(Int(startDate.timeIntervalSince1970))" }
 
     /// Runs, lifts and stops. Cached because Stats asks for it on every redraw.
-    var analysis: RideAnalysis {
+    var analysis: RideAnalysis { cached.analysis }
+
+    private var cached: AnalysisBox {
         let key = "\(session)-\(points.count)-\(Int(startDate.timeIntervalSince1970))" as NSString
-        if let cached = Self.analysisCache.object(forKey: key) { return cached.analysis }
-        let analysis = ActivityDetector.analyze(points)
-        Self.analysisCache.setObject(AnalysisBox(analysis), forKey: key)
-        return analysis
+        if let box = Self.analysisCache.object(forKey: key) { return box }
+        let box = AnalysisBox(ActivityDetector.analyze(points))
+        Self.analysisCache.setObject(box, forKey: key)
+        return box
     }
 
     private static let analysisCache = NSCache<NSString, AnalysisBox>()
@@ -51,6 +58,7 @@ struct SessionSummary: Identifiable {
 
 private final class AnalysisBox {
     let analysis: RideAnalysis
+    var route: [CLLocationCoordinate2D]?
     init(_ analysis: RideAnalysis) { self.analysis = analysis }
 }
 
