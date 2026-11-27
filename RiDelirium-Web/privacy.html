@@ -28,7 +28,7 @@
 </header>
 
 <main id="main">
-<div class="doc-hero"><div class="wrap" style="max-width:760px"><h1>Privacy Policy</h1><p>Effective November 20, 2026</p></div></div>
+<div class="doc-hero"><div class="wrap" style="max-width:760px"><h1>Privacy Policy</h1><p>Effective November 27, 2026</p></div></div>
 <div class="doc"><div class="wrap">
 
 <p>RiDelirium (“the app”, “we”, “us”) is an independent app. This policy explains what the app does with your information on iPhone, Apple Watch and Android.</p>
@@ -51,7 +51,7 @@
 <tr><td><strong>Ride Together friends</strong> (iPhone and Android): the display name you choose, a random ID for your install, your invite code and who you are friends with</td><td>To connect you with riders you join by QR code or code (joining a code connects you with the whole crew of the person who invited you), to show which friends are riding right now and where they are on your map.</td><td>Stored on our server. Your position is sent every few seconds only while you are in a crew and the app is open or recording a ride, only the latest one is kept, with your speed at that moment (never a history), only your friends can see it, and it is deleted when you stop sharing, or ten minutes after your phone last sent it. Leave the crew in the app to stop sharing at any time. No email, phone number or ride data is sent. A secret token kept in your iPhone’s Keychain identifies your install, and only a hash of it is stored on the server. If you allow notifications, your phone’s push token is stored so we can tell you when a friend joins or leaves your crew, asks you to wait, accepts your wait request or invites you to ride (the notification contains their display name, and for wait requests the distance between you, and passes through Apple’s or Google’s notification service); it is deleted with your rider. Riders not seen for 30 days are deleted automatically.</td></tr>
 
 <tr><td><strong>Crash reports</strong> (iPhone and Android)</td><td>To find and fix crashes.</td><td>When the app crashes, or on Android when it cannot keep recording a ride in the background, a report is sent to Google’s Firebase Crashlytics: where in the code it failed, the phone model, system and app version, the phone’s state at that moment (such as free memory) and a random ID for your install. It contains no name, location or ride data and is not linked to your Ride Together profile. Google keeps reports for 90 days.</td></tr>
-<tr><td><strong>Ride insights</strong> (iPhone, optional)</td><td>On supported iPhones, the app can write a short summary of a ride from its numbers.</td><td>Written by Apple’s on-device model on your iPhone. Your ride data isn’t sent to us or to any server for this.</td></tr></tbody></table></div>
+<tr><td><strong>Ride insights</strong> (iPhone and Android, optional)</td><td>On supported phones, the app can write a short summary of a ride, or of your progress over several rides, from the numbers.</td><td>Written on your phone by an on-device model: Apple’s on iPhone, Google’s Gemini Nano on Android. Your ride data and the text written from it aren’t sent to us or to any server for this. On Android, Google’s ML Kit, which runs the model, sends Google technical data for diagnostics and usage statistics, such as the phone model and system version, the app version, an ID for your install, performance figures and error codes.</td></tr></tbody></table></div>
 
 <h2>Location permission</h2>
 <p>The app asks for location access. You can choose “While using the app” or “Always” on iPhone, or “While using the app” on Android. Recording a ride in the background relies on that permission, and on Android on a notification that says a ride is being recorded. You can change the permission in your phone’s settings at any time. Without it, the app can’t record rides.</p>
@@ -60,6 +60,7 @@
 <ul>
   <li><strong>Apple</strong> — Apple Maps and location services, geocoding, Apple Health and Apple Watch. <a href="https://www.apple.com/legal/privacy/">apple.com/legal/privacy</a></li>
   <li><strong>Google</strong> — Google Maps, Google Play services location and geocoding on Android. <a href="https://policies.google.com/privacy">policies.google.com/privacy</a></li>
+  <li><strong>Google ML Kit</strong> — on-device ride insights on Android, with the technical data described above. <a href="https://developers.google.com/ml-kit/terms">developers.google.com/ml-kit/terms</a></li>
   <li><strong>Google Firebase Crashlytics</strong> — crash reports on iPhone and Android. <a href="https://firebase.google.com/support/privacy">firebase.google.com/support/privacy</a></li>
 </ul>
 
